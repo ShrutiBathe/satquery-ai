@@ -19,3 +19,13 @@ env/
 # OS files
 .DS_Store
 Thumbs.db   
+# Temporary Geo/Image processing test files
+different_size.png
+resampled_satellite.tif
+test.png
+test.txt
+test2.png
+test_rgb.png
+test_satellite.tif
+test_satellite_different_grid.tif
+outputs/
