@@ -9,3 +9,6 @@ New-Item configs\.gitkeep -ItemType File
 New-Item requirements\.gitkeep -ItemType File
 __pycache__/
 *.pyc
+
+# Runtime-generated SatQuery files
+backend/runtime/
