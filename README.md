@@ -88,3 +88,4 @@ To connect your live **FastAPI** or **LangGraph** backend:
 1. Open the sidebar and toggle **Demo Simulation Mode** to **OFF** (or set `SATQUERY_BACKEND_URL` environment variable).
 2. Ensure your backend implements the `POST /api/v1/analyze` endpoint specified in `components/api_docs.py`.
 3. All requests and visual evidence layers conform to the contract defined in `services/api_client.py`.
+
