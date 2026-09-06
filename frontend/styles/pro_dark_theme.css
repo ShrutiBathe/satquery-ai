@@ -1,0 +1,321 @@
+/* ==========================================================================
+   SatQuery AI - Professional Dark Theme ("Midnight Obsidian / Enterprise Dark")
+   Tailored for corporate defense & aerospace intelligence operations.
+   Features refined charcoal-slate surfaces, subtle cobalt/indigo accents,
+   and executive-level contrast without intense neon glare.
+   ========================================================================== */
+
+:root {
+  --bg-deep-void: #0A0E17;
+  --bg-space-navy: #0E1422;
+  --bg-surface: #121A2D;
+  --bg-surface-elevated: #18223B;
+  --bg-glass: rgba(18, 26, 45, 0.78);
+  --bg-glass-hover: rgba(24, 35, 60, 0.90);
+
+  --border-subtle: rgba(148, 163, 184, 0.14);
+  --border-medium: rgba(148, 163, 184, 0.24);
+  --border-active: rgba(59, 130, 246, 0.65);
+  --border-glow: 0 0 14px rgba(59, 130, 246, 0.20);
+
+  --cyan-accent: #38BDF8;
+  --blue-bright: #60A5FA;
+  --blue-deep: #2563EB;
+  --indigo-accent: #6366F1;
+  --purple-accent: #8B5CF6;
+
+  --emerald-success: #10B981;
+  --amber-warning: #F59E0B;
+  --rose-danger: #EF4444;
+
+  --text-pure: #F8FAFC;
+  --text-starlight: #E2E8F0;
+  --text-muted: #94A3B8;
+  --text-faint: #64748B;
+}
+
+/* Base App Background */
+.stApp {
+  background-color: #0A0E17 !important;
+  background-image: 
+    radial-gradient(circle at 18% 12%, rgba(59, 130, 246, 0.05) 0%, transparent 45%),
+    radial-gradient(circle at 82% 82%, rgba(99, 102, 241, 0.04) 0%, transparent 50%),
+    linear-gradient(180deg, #0A0E17 0%, #070A11 100%) !important;
+  color: #F8FAFC !important;
+}
+
+/* Typography Overrides */
+h1, h2, h3, h4, h5, h6 {
+  color: #F8FAFC !important;
+}
+
+/* Hero H1 gradient text override for professional dark */
+.main h1 {
+  background: linear-gradient(180deg, #FFFFFF 0%, #CBD5E1 100%) !important;
+  -webkit-background-clip: text !important;
+  -webkit-text-fill-color: transparent !important;
+}
+
+/* Sidebar Custom Styling */
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #0B101C 0%, #080C15 100%) !important;
+  border-right: 1px solid rgba(148, 163, 184, 0.12) !important;
+  box-shadow: 2px 0 20px rgba(0, 0, 0, 0.35) !important;
+}
+
+[data-testid="stSidebar"] hr {
+  border-color: rgba(148, 163, 184, 0.10) !important;
+}
+
+[data-testid="stSidebar"] h2 {
+  color: #F8FAFC !important;
+}
+
+/* Base Buttons */
+.stButton > button {
+  background: #121A2D !important;
+  color: #E2E8F0 !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.stButton > button:hover {
+  border-color: #38BDF8 !important;
+  color: #FFFFFF !important;
+  background: #18223B !important;
+  box-shadow: 0 4px 14px rgba(56, 189, 248, 0.22) !important;
+}
+
+/* Primary Highlight Buttons */
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, #2563EB 0%, #1D4ED8 100%) !important;
+  border: 1px solid rgba(59, 130, 246, 0.8) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 4px 18px rgba(37, 99, 235, 0.32) !important;
+}
+
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="baseButton-primary"]:hover {
+  background: linear-gradient(135deg, #3B82F6 0%, #2563EB 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 6px 22px rgba(59, 130, 246, 0.45) !important;
+}
+
+/* Input Fields & Text Areas */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea {
+  background-color: #0E1524 !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+  color: #F8FAFC !important;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.3) !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+  border-color: #38BDF8 !important;
+  box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.18) !important;
+}
+
+/* Cards & Glass Containers */
+.sq-card {
+  background: rgba(18, 26, 45, 0.78) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.28) !important;
+  color: #F8FAFC !important;
+}
+
+.sq-card:hover {
+  border-color: rgba(56, 189, 248, 0.45) !important;
+  background: rgba(24, 35, 60, 0.88) !important;
+  box-shadow: 0 8px 26px rgba(0, 0, 0, 0.36) !important;
+}
+
+/* Command Header */
+.sq-command-header {
+  background: linear-gradient(135deg, #101728 0%, #0D1322 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.25) !important;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.05) !important;
+}
+
+/* Step Pipeline Indicators */
+.sq-step-container {
+  background: rgba(18, 26, 45, 0.65) !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+}
+
+.sq-step-num {
+  background: #141D30 !important;
+  color: #64748B !important;
+  border: 1px solid rgba(148, 163, 184, 0.18) !important;
+}
+
+.sq-step-item.active .sq-step-num {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.4) !important;
+}
+
+.sq-step-item.completed .sq-step-num {
+  background: #10B981 !important;
+  color: #FFFFFF !important;
+  border-color: #10B981 !important;
+}
+
+/* Badges & Pills */
+.sq-badge-cyan {
+  background: rgba(56, 189, 248, 0.12) !important;
+  color: #38BDF8 !important;
+  border: 1px solid rgba(56, 189, 248, 0.32) !important;
+}
+
+.sq-badge-green {
+  background: rgba(16, 185, 129, 0.12) !important;
+  color: #34D399 !important;
+  border: 1px solid rgba(16, 185, 129, 0.32) !important;
+}
+
+.sq-badge-amber {
+  background: rgba(245, 158, 11, 0.12) !important;
+  color: #FBBF24 !important;
+  border: 1px solid rgba(245, 158, 11, 0.32) !important;
+}
+
+.sq-badge-rose {
+  background: rgba(239, 68, 68, 0.12) !important;
+  color: #F87171 !important;
+  border: 1px solid rgba(239, 68, 68, 0.32) !important;
+}
+
+.sq-badge-purple {
+  background: rgba(139, 92, 246, 0.12) !important;
+  color: #A78BFA !important;
+  border: 1px solid rgba(139, 92, 246, 0.32) !important;
+}
+
+/* Sensor Bay Ingestion Cards */
+.sq-sensor-bay-frame {
+  background: linear-gradient(180deg, #111A2E 0%, #0D1525 100%) !important;
+  border: 1px solid rgba(148, 163, 184, 0.16) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.sq-sensor-bay-frame:hover {
+  border-color: rgba(56, 189, 248, 0.4) !important;
+}
+
+/* File Uploader in Professional Dark Mode */
+[data-testid="stFileUploader"] section {
+  background: #0E1626 !important;
+  border: 1.5px dashed rgba(56, 189, 248, 0.35) !important;
+}
+
+[data-testid="stFileUploader"] section:hover {
+  border-color: #38BDF8 !important;
+  background: rgba(56, 189, 248, 0.05) !important;
+}
+
+/* Tabs */
+.stTabs [data-baseweb="tab-list"] {
+  background: #0D1424 !important;
+  border: 1px solid rgba(148, 163, 184, 0.12) !important;
+}
+
+.stTabs [data-baseweb="tab"] {
+  color: #94A3B8 !important;
+}
+
+.stTabs [data-baseweb="tab"][aria-selected="true"] {
+  background: #18223B !important;
+  color: #F8FAFC !important;
+  border-color: #38BDF8 !important;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+  background: #10182A !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.25) !important;
+}
+
+[data-testid="stExpander"] summary {
+  color: #F8FAFC !important;
+}
+
+/* Metric Tiles */
+.sq-metric-tile, .sq-trace-step {
+  background: #111A2D !important;
+  border: 1px solid rgba(148, 163, 184, 0.14) !important;
+  color: #F8FAFC !important;
+}
+
+/* Compact Theme Switch Buttons */
+.sq-small-theme-btn {
+  display: inline-block !important;
+  width: auto !important;
+}
+
+.sq-small-theme-btn .stButton {
+  width: auto !important;
+}
+
+.sq-small-theme-btn .stButton > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0.2rem 0.8rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 6px !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  border: 1px solid rgba(56, 189, 248, 0.4) !important;
+  background: rgba(56, 189, 248, 0.08) !important;
+  color: #38BDF8 !important;
+  box-shadow: 0 0 10px rgba(56, 189, 248, 0.12) !important;
+  transition: all 0.2s ease !important;
+}
+
+.sq-small-theme-btn .stButton > button:hover {
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  border-color: #3B82F6 !important;
+  box-shadow: 0 0 16px rgba(59, 130, 246, 0.35) !important;
+  transform: translateY(-1px) !important;
+}
+
+.sq-small-theme-btn-active {
+  display: inline-block !important;
+  width: auto !important;
+}
+
+.sq-small-theme-btn-active .stButton {
+  width: auto !important;
+}
+
+.sq-small-theme-btn-active .stButton > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0.2rem 0.8rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 6px !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  border: 1.5px solid #3B82F6 !important;
+  background: #2563EB !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 14px rgba(37, 99, 235, 0.45) !important;
+}
+

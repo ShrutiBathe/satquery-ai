@@ -1,0 +1,918 @@
+/* ==========================================================================
+   SatQuery AI - Design System ("Deep Orbit Geospatial")
+   Problem Statement ID: SIH26167
+   ========================================================================== */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&family=Space+Grotesk:wght@500;600;700&display=swap');
+
+:root {
+  --bg-deep-void: #060913;
+  --bg-space-navy: #0A0F1D;
+  --bg-surface: #0E162B;
+  --bg-surface-elevated: #131E38;
+  --bg-glass: rgba(14, 22, 43, 0.72);
+  --bg-glass-hover: rgba(20, 32, 60, 0.85);
+
+  --border-subtle: rgba(56, 189, 248, 0.16);
+  --border-medium: rgba(56, 189, 248, 0.28);
+  --border-active: rgba(0, 240, 255, 0.65);
+  --border-glow: 0 0 16px rgba(0, 240, 255, 0.25);
+
+  --cyan-accent: #00F0FF;
+  --blue-bright: #38BDF8;
+  --blue-deep: #1E40AF;
+  --indigo-accent: #6366F1;
+  --purple-accent: #A855F7;
+  
+  --emerald-success: #10B981;
+  --amber-warning: #F59E0B;
+  --rose-danger: #F43F5E;
+
+  --text-pure: #F8FAFC;
+  --text-starlight: #E2E8F0;
+  --text-muted: #94A3B8;
+  --text-faint: #64748B;
+
+  --radius-sm: 6px;
+  --radius-md: 10px;
+  --radius-lg: 16px;
+  --radius-xl: 22px;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-display: 'Space Grotesk', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+/* Base App Background & Centering */
+.stApp {
+  background-color: var(--bg-deep-void) !important;
+  background-image: 
+    radial-gradient(circle at 18% 12%, rgba(0, 240, 255, 0.04) 0%, transparent 40%),
+    radial-gradient(circle at 82% 80%, rgba(99, 102, 241, 0.05) 0%, transparent 45%),
+    linear-gradient(180deg, #070B14 0%, #050810 100%) !important;
+  color: var(--text-pure) !important;
+  font-family: var(--font-sans) !important;
+}
+
+/* Maximum width layout container */
+.main .block-container {
+  max-width: 1280px !important;
+  padding-top: 1.5rem !important;
+  padding-bottom: 4rem !important;
+  padding-left: 2rem !important;
+  padding-right: 2rem !important;
+}
+
+/* Sidebar Custom Styling */
+[data-testid="stSidebar"] {
+  background: linear-gradient(180deg, #090E1C 0%, #060913 100%) !important;
+  border-right: 1px solid var(--border-subtle) !important;
+}
+
+[data-testid="stSidebar"] hr {
+  border-color: rgba(56, 189, 248, 0.12) !important;
+  margin: 1.2rem 0 !important;
+}
+
+/* Custom Scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg-deep-void);
+}
+::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.25);
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--cyan-accent);
+}
+
+/* Typography Headings */
+h1, h2, h3 {
+  font-family: var(--font-display) !important;
+  color: var(--text-pure) !important;
+  letter-spacing: -0.02em !important;
+  font-weight: 600 !important;
+}
+
+h4, h5, h6 {
+  font-family: var(--font-sans) !important;
+  color: var(--text-starlight) !important;
+  font-weight: 600 !important;
+}
+
+/* Buttons */
+.stButton > button {
+  background: linear-gradient(135deg, rgba(14, 22, 43, 0.9) 0%, rgba(19, 30, 56, 0.9) 100%) !important;
+  color: var(--text-pure) !important;
+  border: 1px solid var(--border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  font-family: var(--font-sans) !important;
+  font-weight: 500 !important;
+  font-size: 0.92rem !important;
+  padding: 0.55rem 1.25rem !important;
+  transition: all 0.22s ease-in-out !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+}
+
+.stButton > button:hover {
+  border-color: var(--cyan-accent) !important;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.22) !important;
+  transform: translateY(-1px) !important;
+  color: #FFFFFF !important;
+}
+
+.stButton > button:active {
+  transform: translateY(0px) !important;
+}
+
+/* Primary Highlight Buttons */
+.stButton > button[kind="primary"],
+.stButton > button[data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%) !important;
+  border: 1px solid rgba(0, 240, 255, 0.8) !important;
+  color: #FFFFFF !important;
+  font-weight: 600 !important;
+  box-shadow: 0 4px 18px rgba(0, 180, 216, 0.35) !important;
+}
+
+.stButton > button[kind="primary"]:hover,
+.stButton > button[data-testid="baseButton-primary"]:hover {
+  background: linear-gradient(135deg, #00F0FF 0%, #0096C7 100%) !important;
+  box-shadow: 0 6px 24px rgba(0, 240, 255, 0.5) !important;
+  color: #030712 !important;
+}
+
+/* Input Fields & Text Areas */
+.stTextInput > div > div > input,
+.stTextArea > div > div > textarea {
+  background-color: rgba(10, 15, 29, 0.85) !important;
+  border: 1px solid var(--border-medium) !important;
+  border-radius: var(--radius-md) !important;
+  color: var(--text-pure) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.95rem !important;
+  transition: all 0.2s ease !important;
+}
+
+.stTextInput > div > div > input:focus,
+.stTextArea > div > div > textarea:focus {
+  border-color: var(--cyan-accent) !important;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.25) !important;
+}
+
+/* Streamlit Tabs Customization */
+[data-testid="stTabs"] {
+  gap: 0.5rem !important;
+}
+
+[data-testid="stTabs"] button {
+  background: transparent !important;
+  border: none !important;
+  border-bottom: 2px solid transparent !important;
+  color: var(--text-muted) !important;
+  font-family: var(--font-sans) !important;
+  font-size: 0.92rem !important;
+  font-weight: 500 !important;
+  padding: 0.5rem 1rem !important;
+  border-radius: 0 !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-testid="stTabs"] button:hover {
+  color: var(--text-starlight) !important;
+}
+
+[data-testid="stTabs"] button[aria-selected="true"] {
+  color: var(--cyan-accent) !important;
+  border-bottom-color: var(--cyan-accent) !important;
+  font-weight: 600 !important;
+}
+
+/* Expanders */
+[data-testid="stExpander"] {
+  background: var(--bg-glass) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-md) !important;
+  overflow: hidden !important;
+}
+
+[data-testid="stExpander"] summary {
+  color: var(--text-starlight) !important;
+  font-size: 0.9rem !important;
+  font-weight: 500 !important;
+}
+
+/* Custom Components & Cards */
+.sq-card {
+  background: var(--bg-glass);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 1.4rem;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
+}
+
+.sq-card:hover {
+  border-color: var(--border-medium);
+  background: var(--bg-glass-hover);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
+}
+
+.sq-card-interactive {
+  cursor: pointer;
+}
+
+.sq-card-active {
+  border-color: var(--cyan-accent) !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.15) !important;
+}
+
+/* HUD Header & Badges */
+.sq-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.22rem 0.65rem;
+  border-radius: 999px;
+  font-family: var(--font-mono);
+  font-size: 0.74rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sq-badge-cyan {
+  background: rgba(0, 240, 255, 0.1);
+  color: var(--cyan-accent);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+}
+
+.sq-badge-green {
+  background: rgba(16, 185, 129, 0.1);
+  color: var(--emerald-success);
+  border: 1px solid rgba(16, 185, 129, 0.3);
+}
+
+.sq-badge-amber {
+  background: rgba(245, 158, 11, 0.1);
+  color: var(--amber-warning);
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.sq-badge-purple {
+  background: rgba(168, 85, 247, 0.1);
+  color: var(--purple-accent);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+}
+
+.sq-badge-rose {
+  background: rgba(244, 63, 94, 0.1);
+  color: var(--rose-danger);
+  border: 1px solid rgba(244, 63, 94, 0.3);
+}
+
+/* Step Progress Indicator */
+.sq-step-container {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 1.5rem 0 2rem 0;
+  padding: 0.8rem 1.2rem;
+  background: rgba(10, 15, 29, 0.7);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  backdrop-filter: blur(10px);
+}
+
+.sq-step-item {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  font-family: var(--font-mono);
+  font-size: 0.82rem;
+  font-weight: 500;
+  color: var(--text-faint);
+  transition: all 0.2s ease;
+}
+
+.sq-step-item.active {
+  color: var(--cyan-accent);
+  font-weight: 600;
+}
+
+.sq-step-item.completed {
+  color: var(--emerald-success);
+}
+
+.sq-step-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.75rem;
+}
+
+.sq-step-item.active .sq-step-num {
+  background: rgba(0, 240, 255, 0.15);
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.35);
+}
+
+.sq-step-arrow {
+  color: rgba(94, 116, 139, 0.5);
+  font-size: 0.9rem;
+}
+
+/* Query Suggestion Chip */
+.sq-chip-btn {
+  display: inline-block;
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid var(--border-subtle);
+  color: var(--text-starlight);
+  padding: 0.35rem 0.8rem;
+  border-radius: 999px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  transition: all 0.18s ease;
+  margin-right: 0.45rem;
+  margin-bottom: 0.45rem;
+}
+
+.sq-chip-btn:hover {
+  border-color: var(--cyan-accent);
+  color: var(--cyan-accent);
+  background: rgba(0, 240, 255, 0.08);
+}
+
+/* Pipeline Status Nodes */
+.sq-pipeline-stage {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  padding: 0.85rem 1.1rem;
+  border-radius: var(--radius-md);
+  margin-bottom: 0.6rem;
+  background: rgba(11, 18, 35, 0.5);
+  border: 1px solid rgba(56, 189, 248, 0.08);
+  transition: all 0.3s ease;
+}
+
+.sq-pipeline-stage.done {
+  border-color: rgba(16, 185, 129, 0.25);
+  background: rgba(16, 185, 129, 0.04);
+}
+
+.sq-pipeline-stage.active {
+  border-color: var(--cyan-accent);
+  background: rgba(0, 240, 255, 0.06);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.12);
+}
+
+.sq-stage-icon {
+  font-size: 1.1rem;
+  line-height: 1.4;
+}
+
+.sq-stage-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--text-pure);
+  margin-bottom: 0.15rem;
+}
+
+.sq-stage-desc {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  line-height: 1.35;
+}
+
+/* Synthetic Geospatial Radar Hero Graphic */
+.sq-hero-radar {
+  position: relative;
+  width: 100%;
+  height: 240px;
+  background: radial-gradient(circle at center, #0B1630 0%, #060913 75%);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.sq-radar-grid {
+  position: absolute;
+  width: 100%;
+  height: 100%;
+  background-image: 
+    linear-gradient(rgba(56, 189, 248, 0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(56, 189, 248, 0.07) 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+.sq-radar-circles {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  border: 1px dashed rgba(0, 240, 255, 0.22);
+  animation: rotateSweep 24s linear infinite;
+}
+
+.sq-radar-circles::before {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  width: 110px;
+  height: 110px;
+  border-radius: 50%;
+  border: 1px solid rgba(0, 240, 255, 0.15);
+}
+
+.sq-radar-sweep {
+  position: absolute;
+  width: 180px;
+  height: 180px;
+  border-radius: 50%;
+  background: conic-gradient(from 0deg, rgba(0, 240, 255, 0.25) 0deg, transparent 65deg, transparent 360deg);
+  animation: rotateSweep 5s linear infinite;
+}
+
+@keyframes rotateSweep {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.sq-telemetry-hud {
+  position: absolute;
+  font-family: var(--font-mono);
+  font-size: 0.72rem;
+  color: var(--cyan-accent);
+  opacity: 0.75;
+  letter-spacing: 0.05em;
+  padding: 0.4rem 0.6rem;
+  background: rgba(6, 9, 19, 0.7);
+  border: 1px solid rgba(0, 240, 255, 0.2);
+  border-radius: var(--radius-sm);
+}
+
+/* ==========================================================================
+   Mission Command Console & File Uploader Polish (SIH26167)
+   ========================================================================== */
+
+/* Streamlit File Uploader Aerospace Theme */
+[data-testid="stFileUploader"] {
+  width: 100% !important;
+}
+
+[data-testid="stFileUploader"] section {
+  background: rgba(10, 16, 32, 0.75) !important;
+  border: 1.5px dashed rgba(56, 189, 248, 0.32) !important;
+  border-radius: var(--radius-md) !important;
+  padding: 1.1rem 1rem !important;
+  transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+[data-testid="stFileUploader"] section:hover {
+  border-color: var(--cyan-accent) !important;
+  background: rgba(14, 24, 48, 0.85) !important;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.2) !important;
+}
+
+[data-testid="stFileUploader"] button {
+  background: rgba(0, 240, 255, 0.12) !important;
+  border: 1px solid rgba(0, 240, 255, 0.45) !important;
+  color: var(--cyan-accent) !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.78rem !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.04em !important;
+  padding: 0.4rem 0.9rem !important;
+  transition: all 0.2s ease !important;
+}
+
+[data-testid="stFileUploader"] button:hover {
+  background: var(--cyan-accent) !important;
+  color: #030712 !important;
+  box-shadow: 0 0 12px rgba(0, 240, 255, 0.4) !important;
+}
+
+[data-testid="stFileUploader"] svg {
+  fill: var(--cyan-accent) !important;
+}
+
+[data-testid="stFileUploader"] small {
+  color: var(--text-muted) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.72rem !important;
+}
+
+/* Date Input Customization */
+[data-testid="stDateInput"] input {
+  background-color: rgba(10, 15, 29, 0.85) !important;
+  border: 1px solid var(--border-medium) !important;
+  border-radius: var(--radius-sm) !important;
+  color: var(--cyan-accent) !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.88rem !important;
+  font-weight: 600 !important;
+}
+
+[data-testid="stDateInput"] label {
+  font-family: var(--font-mono) !important;
+  font-size: 0.74rem !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.05em !important;
+  color: var(--text-muted) !important;
+}
+
+/* Slot Cards & Sensor Bay Data Ingestion */
+.sq-command-header {
+  background: linear-gradient(135deg, rgba(14, 22, 43, 0.95) 0%, rgba(8, 13, 27, 0.98) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.35);
+  border-radius: 16px;
+  padding: 1.3rem 1.6rem;
+  margin: 1.8rem 0 1.2rem 0;
+  box-shadow: 0 10px 36px rgba(0, 0, 0, 0.55), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  position: relative;
+  overflow: hidden;
+}
+
+.sq-command-header::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #00F0FF 0%, #38BDF8 35%, #818CF8 70%, #A855F7 100%);
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.6);
+}
+
+.sq-icon-box {
+  width: 48px;
+  height: 48px;
+  border-radius: 13px;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.22) 0%, rgba(30, 64, 175, 0.35) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.45rem;
+  box-shadow: 0 0 20px rgba(0, 240, 255, 0.3);
+  flex-shrink: 0;
+}
+
+/* Mission Briefing HUD Strip (Replaces basic alert boxes) */
+.sq-mission-briefing {
+  background: linear-gradient(135deg, rgba(10, 16, 32, 0.92) 0%, rgba(14, 22, 43, 0.95) 100%);
+  border: 1px solid rgba(0, 240, 255, 0.3);
+  border-left: 4px solid var(--cyan-accent);
+  border-radius: 12px;
+  padding: 0.9rem 1.2rem;
+  margin: 1rem 0 1.4rem 0;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(0, 240, 255, 0.08);
+}
+
+.sq-mission-briefing-rose {
+  border-left-color: var(--rose-danger) !important;
+  border-color: rgba(244, 63, 94, 0.35) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(244, 63, 94, 0.1) !important;
+}
+
+.sq-mission-briefing-purple {
+  border-left-color: var(--purple-accent) !important;
+  border-color: rgba(168, 85, 247, 0.35) !important;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), 0 0 16px rgba(168, 85, 247, 0.1) !important;
+}
+
+.sq-telemetry-tag {
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  background: rgba(15, 23, 42, 0.8);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  border-radius: 4px;
+  padding: 0.15rem 0.45rem;
+  letter-spacing: 0.04em;
+}
+
+/* Modality Selector Grid & Cards */
+.sq-modality-wrapper .stButton > button {
+  min-height: 62px !important;
+  height: 62px !important;
+  border-radius: 12px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  white-space: pre-line !important;
+  line-height: 1.3 !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+}
+
+.sq-modality-wrapper .stButton > button[kind="primary"],
+.sq-modality-wrapper .stButton > button[data-testid="baseButton-primary"] {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.25) 0%, rgba(14, 28, 64, 0.95) 100%) !important;
+  border: 1.5px solid var(--cyan-accent) !important;
+  box-shadow: 0 0 22px rgba(0, 240, 255, 0.35), inset 0 1px 0 rgba(255, 255, 255, 0.15) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+}
+
+.sq-modality-wrapper .stButton > button[kind="secondary"],
+.sq-modality-wrapper .stButton > button[data-testid="baseButton-secondary"] {
+  background: linear-gradient(135deg, rgba(10, 16, 32, 0.8) 0%, rgba(14, 22, 43, 0.85) 100%) !important;
+  border: 1px solid rgba(56, 189, 248, 0.22) !important;
+  color: var(--text-starlight) !important;
+}
+
+.sq-modality-wrapper .stButton > button[kind="secondary"]:hover {
+  border-color: rgba(0, 240, 255, 0.5) !important;
+  background: rgba(14, 26, 56, 0.9) !important;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.2) !important;
+  color: #FFFFFF !important;
+}
+
+/* Sensor Bay Ingestion Cards */
+.sq-sensor-bay-frame {
+  background: linear-gradient(180deg, rgba(14, 22, 43, 0.85) 0%, rgba(8, 13, 27, 0.95) 100%);
+  border: 1px solid rgba(56, 189, 248, 0.25);
+  border-radius: 14px;
+  padding: 1.1rem 1.25rem;
+  margin-bottom: 0.9rem;
+  box-shadow: 0 6px 26px rgba(0, 0, 0, 0.45);
+  transition: all 0.25s ease;
+  position: relative;
+}
+
+.sq-sensor-bay-frame:hover {
+  border-color: rgba(56, 189, 248, 0.45);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.55);
+}
+
+.sq-sensor-bay-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.6rem;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.16);
+}
+
+.sq-bay-pill {
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0.2rem 0.55rem;
+  border-radius: 4px;
+  background: rgba(0, 240, 255, 0.12);
+  color: var(--cyan-accent);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+}
+
+.sq-bay-pill-rose {
+  background: rgba(244, 63, 94, 0.12);
+  color: var(--rose-danger);
+  border-color: rgba(244, 63, 94, 0.35);
+}
+
+.sq-bay-pill-purple {
+  background: rgba(168, 85, 247, 0.12);
+  color: var(--purple-accent);
+  border-color: rgba(168, 85, 247, 0.35);
+}
+
+/* Aerospace HUD Viewport with Targeting Corner Brackets */
+.sq-hud-viewport {
+  position: relative;
+  border-radius: 10px;
+  overflow: hidden;
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  background: #03060E;
+  margin-bottom: 0.75rem;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.6);
+}
+
+.sq-hud-corner {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  border-color: var(--cyan-accent);
+  border-style: solid;
+  pointer-events: none;
+  z-index: 5;
+}
+
+.sq-hud-tl { top: 6px; left: 6px; border-width: 2px 0 0 2px; }
+.sq-hud-tr { top: 6px; right: 6px; border-width: 2px 2px 0 0; }
+.sq-hud-bl { bottom: 6px; left: 6px; border-width: 0 0 2px 2px; }
+.sq-hud-br { bottom: 6px; right: 6px; border-width: 0 2px 2px 0; }
+
+.sq-hud-overlay-tag {
+  position: absolute;
+  top: 8px;
+  left: 8px;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(6, 11, 24, 0.85);
+  border: 1px solid rgba(0, 240, 255, 0.35);
+  border-radius: 4px;
+  padding: 0.2rem 0.55rem;
+  font-family: var(--font-mono);
+  font-size: 0.70rem;
+  color: var(--cyan-accent);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  z-index: 6;
+  backdrop-filter: blur(6px);
+}
+
+/* Strict Equal Height Suggested Prompt Chips */
+.sq-prompt-chips-wrapper {
+  margin: 0.8rem 0 1rem 0;
+}
+
+.sq-prompt-chips-wrapper .stButton > button {
+  min-height: 56px !important;
+  height: 56px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  text-align: center !important;
+  font-size: 0.84rem !important;
+  line-height: 1.35 !important;
+  border: 1px solid rgba(56, 189, 248, 0.22) !important;
+  background: linear-gradient(135deg, rgba(14, 22, 43, 0.85) 0%, rgba(10, 16, 32, 0.9) 100%) !important;
+  border-radius: 10px !important;
+  padding: 0.45rem 0.9rem !important;
+  white-space: normal !important;
+  word-break: break-word !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.25) !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  color: var(--text-starlight) !important;
+}
+
+.sq-prompt-chips-wrapper .stButton > button:hover {
+  border-color: var(--cyan-accent) !important;
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.15) 0%, rgba(14, 22, 43, 0.95) 100%) !important;
+  color: #FFFFFF !important;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.3) !important;
+  transform: translateY(-2px) !important;
+}
+
+/* Action Toolbar (Swap / Demo Loader / Reset) */
+.sq-bay-toolbar .stButton > button {
+  font-size: 0.84rem !important;
+  font-weight: 600 !important;
+  padding: 0.5rem 1rem !important;
+}
+
+/* High-Impact Benchmark 1-Click Button */
+.sq-benchmark-btn .stButton > button {
+  background: linear-gradient(135deg, rgba(0, 180, 216, 0.25) 0%, rgba(30, 64, 175, 0.45) 100%) !important;
+  border: 1.5px solid rgba(0, 240, 255, 0.6) !important;
+  box-shadow: 0 0 18px rgba(0, 240, 255, 0.25) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.02em !important;
+}
+
+.sq-benchmark-btn .stButton > button:hover {
+  background: linear-gradient(135deg, rgba(0, 240, 255, 0.4) 0%, rgba(0, 119, 182, 0.65) 100%) !important;
+  box-shadow: 0 0 26px rgba(0, 240, 255, 0.5) !important;
+  transform: translateY(-1px) !important;
+  border-color: #00F0FF !important;
+}
+
+/* Execution Bar Focus & Glowing Primary Button */
+.sq-launch-btn .stButton > button {
+  background: linear-gradient(135deg, #00B4D8 0%, #0077B6 100%) !important;
+  border: 1px solid rgba(0, 240, 255, 0.8) !important;
+  box-shadow: 0 0 22px rgba(0, 180, 216, 0.45) !important;
+  color: #FFFFFF !important;
+  font-weight: 700 !important;
+  font-size: 0.95rem !important;
+  letter-spacing: 0.03em !important;
+  min-height: 48px !important;
+}
+
+.sq-launch-btn .stButton > button:hover {
+  background: linear-gradient(135deg, #00F0FF 0%, #0096C7 100%) !important;
+  box-shadow: 0 0 32px rgba(0, 240, 255, 0.65) !important;
+  color: #030712 !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Dedicated Top-Left Theme Toggle Button */
+.sq-theme-btn .stButton > button {
+  border-radius: 999px !important;
+  font-family: var(--font-mono) !important;
+  font-size: 0.78rem !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.04em !important;
+  padding: 0.35rem 0.85rem !important;
+  min-height: 38px !important;
+  height: 38px !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.4rem !important;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1) !important;
+  border: 1.5px solid rgba(0, 240, 255, 0.45) !important;
+  background: rgba(0, 240, 255, 0.1) !important;
+  color: var(--cyan-accent) !important;
+  box-shadow: 0 0 14px rgba(0, 240, 255, 0.18) !important;
+}
+
+.sq-theme-btn .stButton > button:hover {
+  background: var(--cyan-accent) !important;
+  color: #030712 !important;
+  box-shadow: 0 0 22px rgba(0, 240, 255, 0.5) !important;
+  transform: translateY(-1px) !important;
+}
+
+/* Compact Theme Switch Button in System Settings */
+.sq-small-theme-btn {
+  display: inline-block !important;
+  width: auto !important;
+}
+
+.sq-small-theme-btn .stButton {
+  width: auto !important;
+}
+
+.sq-small-theme-btn .stButton > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0.2rem 0.8rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 600 !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 6px !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  border: 1px solid rgba(0, 240, 255, 0.45) !important;
+  background: rgba(0, 240, 255, 0.08) !important;
+  color: var(--cyan-accent) !important;
+  box-shadow: 0 0 10px rgba(0, 240, 255, 0.12) !important;
+  transition: all 0.2s ease !important;
+}
+
+.sq-small-theme-btn .stButton > button:hover {
+  background: var(--cyan-accent) !important;
+  color: #030712 !important;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.45) !important;
+  transform: translateY(-1px) !important;
+}
+
+.sq-small-theme-btn-active {
+  display: inline-block !important;
+  width: auto !important;
+}
+
+.sq-small-theme-btn-active .stButton {
+  width: auto !important;
+}
+
+.sq-small-theme-btn-active .stButton > button {
+  height: 32px !important;
+  min-height: 32px !important;
+  padding: 0.2rem 0.8rem !important;
+  font-size: 0.76rem !important;
+  font-weight: 700 !important;
+  font-family: var(--font-mono) !important;
+  letter-spacing: 0.02em !important;
+  border-radius: 6px !important;
+  width: auto !important;
+  display: inline-flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  gap: 0.35rem !important;
+  border: 1.5px solid var(--cyan-accent) !important;
+  background: var(--cyan-accent) !important;
+  color: #030712 !important;
+  box-shadow: 0 0 16px rgba(0, 240, 255, 0.45) !important;
+}
+
