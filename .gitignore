@@ -7,3 +7,5 @@ New-Item infrastructure\.gitkeep -ItemType File
 New-Item tests\.gitkeep -ItemType File
 New-Item configs\.gitkeep -ItemType File
 New-Item requirements\.gitkeep -ItemType File
+__pycache__/
+*.pyc
