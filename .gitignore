@@ -1,7 +1,3 @@
-
-# Runtime-generated SatQuery files
-backend/runtime/
-=======
 # Python
 __pycache__/
 *.py[cod]
@@ -22,3 +18,12 @@ env/
 
 # Generated preprocessing/runtime outputs
 outputs/
+
+# Runtime-generated SatQuery files
+backend/runtime/
+
+# ChangeFormer checkpoints, samples, and source archives
+ChangeFormer/checkpoints/
+ChangeFormer/samples_DSIFN/
+ChangeFormer/samples_LEVIR/
+ChangeFormer_source.zip
