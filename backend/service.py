@@ -26,15 +26,12 @@ Those responsibilities belong to the geo module and AI model modules.
 
 from __future__ import annotations
 
+from pathlib import Path
 from typing import Any
 
 from agent.router import understand_query as run_agent_router
 from backend.errors import ModelError, ValidationError
 from backend.schemas import AnalysisRequest, AnalysisResult
-
-from geo.preprocessing import preprocess_images
-from geo.validation import validate_images
-
 
 # ---------------------------------------------------------------------------
 # Query routing
@@ -150,44 +147,15 @@ def run_vqa(
     """
     VQA specialist adapter.
 
-    Currently returns a placeholder result.
-
-    The real VQA model can later be connected here without changing
-    the rest of the backend pipeline.
+    Import lazily so the backend can start without downloading SmolVLM.
     """
 
-    return {
-        "success": True,
-        "answer": (
-            "VQA model integration is pending. "
-            "The image was successfully validated and preprocessed, "
-            "and the query was routed to the Visual Question "
-            "Answering pipeline."
-        ),
-        "confidence": 0.50,
-        "confidence_breakdown": {
-            "model": 0.50,
-            "routing": 1.00,
-            "input_validation": 1.00,
-        },
-        "summary_bullets": [
-            "Image successfully passed through the Geo preprocessing pipeline.",
-            "Query was routed to Visual Question Answering.",
-            "Real VQA model integration is pending.",
-        ],
-        "evidence": [],
-        "visual_evidence": {
-            "image_a": image_path,
-        },
-        "output_paths": [],
-        "statistics": {},
-        "trace": [
-            {
-                "stage": "VQA Specialist",
-                "details": "VQA specialist adapter executed successfully.",
-            }
-        ],
-    }
+    from models.vqa.inference import run_vqa as model_run_vqa
+    result = model_run_vqa(image_path, query)
+    result.setdefault("visual_evidence", {"image_a": image_path})
+    result.setdefault("trace", [{"stage": "VQA Specialist", "details": "SmolVLM inference completed."}])
+    result.setdefault("confidence_breakdown", {"model": "not provided by SmolVLM"})
+    return result
 
 
 def run_grounding(
@@ -197,40 +165,20 @@ def run_grounding(
     """
     Visual grounding specialist adapter.
 
-    Currently returns a placeholder result.
+    Import lazily so Grounding DINO is loaded only for grounding requests.
     """
 
-    return {
-        "success": True,
-        "answer": (
-            "Visual grounding model integration is pending. "
-            "The image was successfully validated and preprocessed, "
-            "and the query was routed to the Visual Grounding pipeline."
-        ),
-        "confidence": 0.50,
-        "confidence_breakdown": {
-            "model": 0.50,
-            "routing": 1.00,
-            "input_validation": 1.00,
-        },
-        "summary_bullets": [
-            "Image successfully passed through the Geo preprocessing pipeline.",
-            "Query was routed to Visual Grounding.",
-            "Real grounding model integration is pending.",
-        ],
-        "evidence": [],
-        "visual_evidence": {
-            "image_a": image_path,
-        },
-        "output_paths": [],
-        "statistics": {},
-        "trace": [
-            {
-                "stage": "Grounding Specialist",
-                "details": "Grounding specialist adapter executed successfully.",
-            }
-        ],
-    }
+    from models.grounding.grounding import run_grounding as model_run_grounding
+    result = model_run_grounding(image_path, query)
+    detections = result.get("detections", [])
+    result["answer"] = f"Detected {len(detections)} matching object(s)."
+    result["summary_bullets"] = [
+        f"Grounding DINO returned {len(detections)} detection(s).",
+        "Bounding boxes are shown in the generated visualization.",
+    ]
+    result["visual_evidence"] = {"image_a": image_path}
+    result["trace"] = [{"stage": "Grounding Specialist", "details": "Grounding DINO inference completed."}]
+    return result
 
 
 def run_change_detection(
@@ -240,95 +188,55 @@ def run_change_detection(
     """
     Change detection specialist adapter.
 
-    Currently returns a placeholder result.
-
-    The Geo preprocessing layer is responsible for preparing/alignment
-    of the input images before this function is called.
+    Import lazily so ChangeFormer and its checkpoint are loaded on demand.
     """
 
-    return {
-        "success": True,
-        "answer": (
-            "Change detection model integration is pending. "
-            "Both images were successfully validated and preprocessed, "
-            "and the inputs are ready for the change detection model."
-        ),
-        "confidence": 0.50,
-        "confidence_breakdown": {
-            "model": 0.50,
-            "routing": 1.00,
-            "input_validation": 1.00,
-        },
-        "summary_bullets": [
-            "Both temporal images passed Geo validation.",
-            "Images were prepared by the Geo preprocessing pipeline.",
-            "Real change detection model integration is pending.",
-        ],
-        "evidence": [],
-        "visual_evidence": {
-            "image_a": image1_path,
-            "image_b": image2_path,
-        },
-        "output_paths": [],
-        "statistics": {},
-        "trace": [
-            {
-                "stage": "Change Detection Specialist",
-                "details": (
-                    "Change detection specialist adapter "
-                    "executed successfully."
-                ),
-            }
-        ],
+    from models.change_detection.change_detection import (
+        run_change_detection as model_run_change_detection,
+    )
+    result = model_run_change_detection(image1_path, image2_path)
+    result["answer"] = (
+        f"Change detected: {result.get('change_detected', False)}; "
+        f"changed area: {result.get('change_percentage', 0.0):.2f}%."
+    )
+    result["visual_evidence"] = {
+        "image_a": image1_path,
+        "image_b": image2_path,
+        "change_mask": result.get("change_mask"),
+        "overlay": result.get("visualization"),
     }
+    result["output_paths"] = [
+        path for path in [result.get("change_mask"), result.get("visualization")]
+        if path
+    ]
+    result["trace"] = [{"stage": "Change Detection Specialist", "details": "ChangeFormer inference completed."}]
+    return result
 
 
 def run_optical_sar(
     optical_path: str,
-    sar_path: str,
-    query: str,
+    vv_path: str,
+    vh_path: str,
 ) -> dict[str, Any]:
     """
     Optical-SAR specialist adapter.
 
-    Currently returns a placeholder result.
+    The specialist owns modality-specific patch extraction and normalization.
     """
 
-    return {
-        "success": True,
-        "answer": (
-            "Optical-SAR model integration is pending. "
-            "The optical and SAR inputs were successfully validated "
-            "and preprocessed."
-        ),
-        "confidence": 0.50,
-        "confidence_breakdown": {
-            "model": 0.50,
-            "routing": 1.00,
-            "input_validation": 1.00,
-        },
-        "summary_bullets": [
-            "Optical and SAR inputs passed Geo validation.",
-            "Inputs were prepared by the Geo preprocessing pipeline.",
-            "Real Optical-SAR model integration is pending.",
-        ],
-        "evidence": [],
-        "visual_evidence": {
-            "image_a": optical_path,
-            "image_b": sar_path,
-        },
-        "output_paths": [],
-        "statistics": {},
-        "trace": [
-            {
-                "stage": "Optical-SAR Specialist",
-                "details": (
-                    "Optical-SAR specialist adapter "
-                    "executed successfully."
-                ),
-            }
-        ],
-    }
+    from models.optical_sar.specialist import run_optical_sar as model_run_optical_sar
+    result = model_run_optical_sar(optical_path, vv_path, vh_path)
+    comparison = result.get("comparison", {})
+    if result.get("status") == "success":
+        agreement = result.get("interpretation", {}).get("agreement", "UNKNOWN")
+        result["answer"] = (
+            f"Optical-SAR feature analysis completed with {agreement.lower()} "
+            f"agreement (cosine similarity {comparison.get('cosine_similarity', 0.0):.3f})."
+        )
+    result["success"] = result.get("status") == "success"
+    result["visual_evidence"] = {"optical": optical_path, "sar_vv": vv_path, "sar_vh": vh_path}
+    result["trace"] = [{"stage": "Optical-SAR Specialist", "details": "Optical-SAR model inference completed."}]
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -366,6 +274,21 @@ def _build_result(
 
     if evidence is None:
         evidence = []
+
+    normalized_evidence = []
+    for item in evidence:
+        if isinstance(item, dict):
+            normalized_evidence.append(item)
+        else:
+            normalized_evidence.append(
+                {
+                    "type": "visual_evidence",
+                    "label": "Generated evidence",
+                    "path": str(item),
+                    "description": "Evidence generated by the specialist model.",
+                }
+            )
+    evidence = normalized_evidence
 
     # Visual evidence normalization
     visual_evidence = specialist_result.get(
@@ -465,6 +388,9 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
     7. Assemble AnalysisResult
     """
 
+    from geo.preprocessing import preprocess_images
+    from geo.validation import validate_images
+
     trace: list[dict[str, Any]] = []
 
     _add_trace(
@@ -487,9 +413,9 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
             "At least one image must be provided."
         )
 
-    if len(request.image_paths) > 2:
+    if len(request.image_paths) > 3:
         raise ValidationError(
-            "A maximum of two images is supported."
+            "A maximum of three images is supported."
         )
 
     _add_trace(
@@ -566,10 +492,16 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
         status="running",
     )
 
-    preprocessing_result = preprocess_images(
-        request.image_paths,
-        task,
-    )
+    processing_dir = Path(request.image_paths[0]).parent / "processed"
+    if task == "optical_sar":
+        from geo.preprocessing import preprocess_optical_sar
+        preprocessing_result = preprocess_optical_sar(*request.image_paths)
+    else:
+        preprocessing_result = preprocess_images(
+            request.image_paths,
+            task,
+            output_dir=processing_dir,
+        )
 
     if not preprocessing_result.get("success", False):
         message = preprocessing_result.get(
@@ -654,15 +586,15 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
 
         elif task == "optical_sar":
 
-            if len(processed_paths) < 2:
+            if len(processed_paths) < 3:
                 raise ModelError(
-                    "Optical-SAR analysis requires two processed images."
+                    "Optical-SAR analysis requires three processed images: optical, SAR VV, and SAR VH."
                 )
 
             specialist_result = run_optical_sar(
                 optical_path=processed_paths[0],
-                sar_path=processed_paths[1],
-                query=request.query,
+                vv_path=processed_paths[1],
+                vh_path=processed_paths[2],
             )
 
         else:

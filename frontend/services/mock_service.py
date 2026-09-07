@@ -48,7 +48,8 @@ def execute_mock_analysis(
     query: str,
     mode: str = cfg.MODE_AUTO,
     metadata_a: Optional[Dict[str, Any]] = None,
-    metadata_b: Optional[Dict[str, Any]] = None
+    metadata_b: Optional[Dict[str, Any]] = None,
+    image_c: Optional[Image.Image] = None,
 ) -> Dict[str, Any]:
     """
     Execute simulated analysis pipeline matching backend JSON contract.

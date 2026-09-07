@@ -26,8 +26,13 @@ def init_session_state() -> None:
         # Uploaded Data & Imagery
         "uploaded_image_a": None,
         "uploaded_image_b": None,
+        "uploaded_image_c": None,
+        "uploaded_image_a_bytes": None,
+        "uploaded_image_b_bytes": None,
+        "uploaded_image_c_bytes": None,
         "image_a_name": None,
         "image_b_name": None,
+        "image_c_name": None,
         "image_a_date": date(2024, 6, 15),
         "image_b_date": date(2026, 3, 20),
         "image_metadata_a": None,
@@ -95,8 +100,13 @@ def clear_analysis_inputs() -> None:
     """Reset imagery and query inputs for a new analysis session."""
     st.session_state["uploaded_image_a"] = None
     st.session_state["uploaded_image_b"] = None
+    st.session_state["uploaded_image_c"] = None
+    st.session_state["uploaded_image_a_bytes"] = None
+    st.session_state["uploaded_image_b_bytes"] = None
+    st.session_state["uploaded_image_c_bytes"] = None
     st.session_state["image_a_name"] = None
     st.session_state["image_b_name"] = None
+    st.session_state["image_c_name"] = None
     st.session_state["image_metadata_a"] = None
     st.session_state["image_metadata_b"] = None
     st.session_state["query_text"] = ""
@@ -128,7 +138,14 @@ def save_current_insight() -> bool:
         "task_id": st.session_state.get("detected_task", {}).get("id", "general"),
         "answer": result.get("answer", ""),
         "confidence": st.session_state.get("confidence", 0.90),
-        "image_count": 2 if st.session_state.get("uploaded_image_b") is not None else 1,
+        "image_count": sum(
+            image is not None
+            for image in (
+                st.session_state.get("uploaded_image_a"),
+                st.session_state.get("uploaded_image_b"),
+                st.session_state.get("uploaded_image_c"),
+            )
+        ),
         "thumbnail": st.session_state.get("uploaded_image_a"),
         "summary_bullets": result.get("summary_bullets", []),
         "metrics": result.get("metrics", {})

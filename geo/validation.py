@@ -53,12 +53,12 @@ def validate_images(
     # Optical-SAR
     elif task == "optical_sar":
 
-        if len(image_paths) < 2:
+        if len(image_paths) != 3:
             return {
                 "valid": False,
                 "message": (
-                    "Optical-SAR requires at least "
-                    "two images."
+                    "Optical-SAR requires exactly three inputs: "
+                    "optical, SAR VV, and SAR VH."
                 )
             }
 

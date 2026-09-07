@@ -10,7 +10,7 @@ class BackendRoutingTests(unittest.TestCase):
             ("What objects are visible in this scene?", 1, "vqa"),
             ("Where are the buildings?", 1, "grounding"),
             ("What changed between these images?", 2, "change_detection"),
-            ("Analyze this area using optical and SAR imagery.", 2, "optical_sar"),
+            ("Analyze this area using optical and SAR imagery.", 3, "optical_sar"),
         ]
 
         for query, image_count, expected_task in cases:
@@ -20,10 +20,14 @@ class BackendRoutingTests(unittest.TestCase):
                 self.assertEqual(routing["task"], expected_task)
                 self.assertEqual(
                     routing["required_images"],
-                    2 if expected_task in {"change_detection", "optical_sar"} else 1,
+                    3 if expected_task == "optical_sar" else 2 if expected_task == "change_detection" else 1,
                 )
                 self.assertTrue(routing["reason"])
 
     def test_backend_converts_agent_image_requirement_to_validation_error(self) -> None:
         with self.assertRaisesRegex(ValidationError, "requires 2 image"):
             understand_query("Compare these two images.", image_count=1)
+
+    def test_optical_sar_requires_three_inputs(self) -> None:
+        with self.assertRaisesRegex(ValidationError, "requires 3 image"):
+            understand_query("Compare optical and SAR imagery.", image_count=2)

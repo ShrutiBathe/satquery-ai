@@ -522,6 +522,7 @@ def _render_optical_sar_uploader() -> None:
             f_opt = st.file_uploader("Upload Optical Satellite Scene (GeoTIFF / PNG / JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"], key="up_opt")
             if f_opt is not None:
                 st.session_state["uploaded_image_a"] = Image.open(f_opt)
+                st.session_state["uploaded_image_a_bytes"] = f_opt.getvalue()
                 st.session_state["image_a_name"] = f_opt.name
                 st.session_state["image_metadata_a"] = generate_mock_geospatial_metadata(f_opt.name, sensor_type="Optical (Sentinel-2)")
                 st.rerun()
@@ -542,6 +543,7 @@ def _render_optical_sar_uploader() -> None:
             st.image(img_opt, caption=f"Optical RGB: {name_opt}", use_container_width=True)
             if st.button("↺ Replace Optical Scene", key="rem_opt", use_container_width=True):
                 st.session_state["uploaded_image_a"] = None
+                st.session_state["uploaded_image_a_bytes"] = None
                 st.session_state["image_a_name"] = None
                 st.rerun()
 
@@ -561,12 +563,13 @@ def _render_optical_sar_uploader() -> None:
 </div>
 """)
         img_sar = st.session_state.get("uploaded_image_b")
-        name_sar = st.session_state.get("image_b_name", "SAR_Backscatter.tif")
+        name_sar = st.session_state.get("image_b_name", "SAR_VV.tif")
 
         if img_sar is None:
-            f_sar = st.file_uploader("Upload SAR Microwave Scene (GeoTIFF / PNG / JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"], key="up_sar")
+            f_sar = st.file_uploader("Upload SAR VV (GeoTIFF / PNG / JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"], key="up_sar_vv")
             if f_sar is not None:
                 st.session_state["uploaded_image_b"] = Image.open(f_sar)
+                st.session_state["uploaded_image_b_bytes"] = f_sar.getvalue()
                 st.session_state["image_b_name"] = f_sar.name
                 st.session_state["image_metadata_b"] = generate_mock_geospatial_metadata(f_sar.name, sensor_type="SAR (Sentinel-1 C-Band)")
                 st.rerun()
@@ -584,10 +587,28 @@ def _render_optical_sar_uploader() -> None:
     </div>
 </div>
 """)
-            st.image(img_sar, caption=f"SAR Radar Backscatter: {name_sar}", use_container_width=True)
+            st.image(img_sar, caption=f"SAR VV Backscatter: {name_sar}", use_container_width=True)
             if st.button("↺ Replace SAR Scene", key="rem_sar", use_container_width=True):
                 st.session_state["uploaded_image_b"] = None
+                st.session_state["uploaded_image_b_bytes"] = None
                 st.session_state["image_b_name"] = None
+                st.rerun()
+
+        img_vh = st.session_state.get("uploaded_image_c")
+        name_vh = st.session_state.get("image_c_name", "SAR_VH.tif")
+        if img_vh is None:
+            f_vh = st.file_uploader("Upload SAR VH (GeoTIFF / PNG / JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"], key="up_sar_vh")
+            if f_vh is not None:
+                st.session_state["uploaded_image_c"] = Image.open(f_vh)
+                st.session_state["uploaded_image_c_bytes"] = f_vh.getvalue()
+                st.session_state["image_c_name"] = f_vh.name
+                st.rerun()
+        else:
+            st.image(img_vh, caption=f"SAR VH Backscatter: {name_vh}", use_container_width=True)
+            if st.button("↺ Replace SAR VH", key="rem_sar_vh", use_container_width=True):
+                st.session_state["uploaded_image_c"] = None
+                st.session_state["uploaded_image_c_bytes"] = None
+                st.session_state["image_c_name"] = None
                 st.rerun()
 
     # Toolbar
@@ -599,8 +620,10 @@ def _render_optical_sar_uploader() -> None:
             sc = generate_optical_sar_scenario()
             st.session_state["uploaded_image_a"] = sc["image_a"]
             st.session_state["uploaded_image_b"] = sc["image_b"]
+            st.session_state["uploaded_image_c"] = None
             st.session_state["image_a_name"] = sc["image_a_name"]
             st.session_state["image_b_name"] = sc["image_b_name"]
+            st.session_state["image_c_name"] = None
             st.session_state["query_text"] = sc["default_query"]
             st.session_state["image_metadata_a"] = generate_mock_geospatial_metadata(sc["image_a_name"], sensor_type=sc["sensor_a"])
             st.session_state["image_metadata_b"] = generate_mock_geospatial_metadata(sc["image_b_name"], sensor_type=sc["sensor_b"])
@@ -610,7 +633,10 @@ def _render_optical_sar_uploader() -> None:
         if st.button("🗑️ Clear Bays", key="btn_clear_sar_bays", use_container_width=True):
             st.session_state["uploaded_image_a"] = None
             st.session_state["uploaded_image_b"] = None
+            st.session_state["uploaded_image_c"] = None
+            st.session_state["uploaded_image_c_bytes"] = None
             st.session_state["image_a_name"] = None
             st.session_state["image_b_name"] = None
+            st.session_state["image_c_name"] = None
             st.rerun()
     st.markdown('</div>', unsafe_allow_html=True)

@@ -1,6 +1,10 @@
 from typing import Literal
 
-from langgraph.graph import StateGraph, START, END
+try:
+    from langgraph.graph import StateGraph, START, END
+except ModuleNotFoundError:
+    StateGraph = None
+    START = END = None
 
 from .state import AgentState
 from .query_understanding import understand_query as classify_query
@@ -71,7 +75,7 @@ def build_agent_graph():
     return graph.compile()
 
 
-agent_graph = build_agent_graph()
+agent_graph = build_agent_graph() if StateGraph is not None else None
 
 
 def run_graph(
@@ -89,7 +93,10 @@ def run_graph(
         "metadata": metadata,
     }
 
-    result = agent_graph.invoke(initial_state)
+    if agent_graph is None:
+        result = understand_node(initial_state)
+    else:
+        result = agent_graph.invoke(initial_state)
 
     return {
         "task": result["task"],

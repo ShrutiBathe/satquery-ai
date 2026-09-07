@@ -23,6 +23,7 @@ from fastapi.staticfiles import StaticFiles
 
 from backend.schemas import AnalysisRequest, AnalysisResult
 from backend.service import analyze
+from backend.errors import ModelError, ValidationError
 
 
 # -------------------------------------------------------------------
@@ -190,6 +191,7 @@ async def analyze_image(
     metadata_b: Optional[str] = Form(None),
     image_a: UploadFile = File(...),
     image_b: Optional[UploadFile] = File(None),
+    image_c: Optional[UploadFile] = File(None),
 ):
     """
     Run SatQuery AI analysis.
@@ -202,6 +204,7 @@ async def analyze_image(
         metadata_b
         image_a
         image_b (optional)
+        image_c (optional, SAR VH for optical_sar)
 
     The endpoint saves uploaded images and passes their filesystem
     paths to the internal analysis service.
@@ -247,6 +250,9 @@ async def analyze_image(
 
     if image_b is not None:
         _validate_upload_extension(image_b.filename)
+
+    if image_c is not None:
+        _validate_upload_extension(image_c.filename)
 
     # ---------------------------------------------------------------
     # Create unique analysis directory
@@ -296,6 +302,12 @@ async def analyze_image(
 
         image_paths.append(str(image_b_path))
 
+    if image_c is not None:
+        image_c_extension = Path(image_c.filename).suffix.lower()
+        image_c_path = analysis_upload_dir / f"image_c{image_c_extension}"
+        _save_upload(image_c, image_c_path)
+        image_paths.append(str(image_c_path))
+
     # ---------------------------------------------------------------
     # Parse metadata
     # ---------------------------------------------------------------
@@ -330,6 +342,12 @@ async def analyze_image(
 
         return result
 
+    except (ValidationError, ValueError) as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+    except ModelError as exc:
+        raise HTTPException(status_code=503, detail=str(exc)) from exc
+
     except HTTPException:
         raise
 
@@ -356,6 +374,7 @@ async def analyze_image_legacy(
     metadata_b: Optional[str] = Form(None),
     image_a: UploadFile = File(...),
     image_b: Optional[UploadFile] = File(None),
+    image_c: Optional[UploadFile] = File(None),
 ):
     """
     Backward-compatible alias for /api/v1/analyze.
@@ -371,4 +390,5 @@ async def analyze_image_legacy(
         metadata_b=metadata_b,
         image_a=image_a,
         image_b=image_b,
+        image_c=image_c,
     )

@@ -1,2 +1,10 @@
 # Backend orchestration
 langgraph>=1.2,<2
+
+# HTTP API and multipart image uploads
+fastapi>=0.115
+uvicorn>=0.30
+python-multipart>=0.0.9
+
+# GeoTIFF validation and preprocessing
+rasterio>=1.3

@@ -14,5 +14,5 @@ REQUIRED_IMAGES = {
     "vqa": 1,
     "grounding": 1,
     "change_detection": 2,
-    "optical_sar": 2,
+    "optical_sar": 3,
 }

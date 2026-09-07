@@ -110,6 +110,10 @@ class SatQueryAPIClient:
         metadata_a: Optional[Dict[str, Any]] = None,
         metadata_b: Optional[Dict[str, Any]] = None,
         demo_mode: bool = True,
+        image_c: Optional[Image.Image] = None,
+        raw_image_a: Optional[bytes] = None,
+        raw_image_b: Optional[bytes] = None,
+        raw_image_c: Optional[bytes] = None,
     ) -> Dict[str, Any]:
         """
         Execute SatQuery analysis.
@@ -130,6 +134,7 @@ class SatQueryAPIClient:
             return execute_mock_analysis(
                 image_a=image_a,
                 image_b=image_b,
+                image_c=image_c,
                 query=query,
                 mode=mode,
                 metadata_a=metadata_a,
@@ -167,9 +172,9 @@ class SatQueryAPIClient:
 
             files = {
                 "image_a": (
-                    "image_a.png",
-                    image_a_bytes,
-                    "image/png",
+                    "image_a.tif" if raw_image_a else "image_a.png",
+                    raw_image_a or image_a_bytes,
+                    "image/tiff" if raw_image_a else "image/png",
                 )
             }
 
@@ -184,9 +189,17 @@ class SatQueryAPIClient:
                 )
 
                 files["image_b"] = (
-                    "image_b.png",
-                    image_b_bytes,
-                    "image/png",
+                    "image_b.tif" if raw_image_b else "image_b.png",
+                    raw_image_b or image_b_bytes,
+                    "image/tiff" if raw_image_b else "image/png",
+                )
+
+            if image_c is not None:
+                image_c_bytes = self._image_to_bytes(image_c)
+                files["image_c"] = (
+                    "image_c.tif" if raw_image_c else "image_c.png",
+                    raw_image_c or image_c_bytes,
+                    "image/tiff" if raw_image_c else "image/png",
                 )
 
             # --------------------------------------------------------

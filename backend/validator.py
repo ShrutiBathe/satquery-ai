@@ -56,8 +56,8 @@ def validate_request(request: AnalysisRequest) -> tuple[bool, str]:
     if image_count == 0:
         return False, "At least one image is required."
 
-    if image_count > 2:
-        return False, "A maximum of two images is supported."
+    if image_count > 3:
+        return False, "A maximum of three images is supported."
 
     # ---------------------------------------------------------------
     # Mode-specific validation
@@ -75,10 +75,10 @@ def validate_request(request: AnalysisRequest) -> tuple[bool, str]:
             "Compare-images mode requires exactly two images.",
         )
 
-    if request.mode == "optical_sar" and image_count != 2:
+    if request.mode == "optical_sar" and image_count != 3:
         return (
             False,
-            "Optical-SAR mode requires exactly two images.",
+            "Optical-SAR mode requires exactly three images: optical, SAR VV, and SAR VH.",
         )
 
     # ---------------------------------------------------------------
