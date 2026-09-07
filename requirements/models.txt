@@ -1,0 +1,40 @@
+# ============================================================
+# SatQuery AI - Model Requirements
+# Grounding + Change Detection
+# Python: 3.10+
+# ============================================================
+
+# -------------------------
+# Core
+# -------------------------
+numpy>=1.24,<2.0
+Pillow>=9.0
+opencv-python>=4.8
+tifffile>=2023.0
+
+# -------------------------
+# PyTorch
+# -------------------------
+# CPU-compatible installation.
+# For NVIDIA GPU deployment, install the appropriate
+# CUDA-enabled PyTorch build instead.
+torch>=2.0
+torchvision>=0.15
+
+# -------------------------
+# Grounding
+# -------------------------
+transformers>=4.40,<5.0
+huggingface-hub>=0.20
+safetensors>=0.4
+
+# -------------------------
+# Change Detection
+# -------------------------
+timm>=1.0
+einops==0.3.2
+
+# -------------------------
+# Optional image/geospatial support
+# -------------------------
+rasterio>=1.3
