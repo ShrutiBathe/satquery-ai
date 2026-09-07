@@ -20,3 +20,5 @@ env/
 .vscode/
 .idea/
 
+# Generated preprocessing/runtime outputs
+outputs/

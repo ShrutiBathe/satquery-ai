@@ -1,57 +1,73 @@
 """
-SatQuery AI - Analysis Service
+SatQuery AI - Backend Analysis Service
 
-Main orchestration layer of the SatQuery AI backend.
+Main orchestration layer for the SatQuery AI prototype.
 
-Prototype flow:
+Responsibilities:
+- Validate the incoming analysis request at the service level
+- Understand the natural-language query
+- Determine the required analysis task
+- Delegate image validation to geo.validation
+- Delegate image preprocessing to geo.preprocessing
+- Execute the appropriate specialist adapter
+- Build the standardized AnalysisResult
+- Maintain a structured execution trace
 
-    Request
-       ↓
-    Query Understanding / Routing
-       ↓
-    Input Validation
-       ↓
-    Specialist Analysis
-       ↓
-    Evidence + Confidence
-       ↓
-    AnalysisResult
+The service does NOT perform:
+- Image format validation
+- Image resizing
+- RGB band selection
+- GeoTIFF reading
+- GeoTIFF alignment
+- Model-specific preprocessing
 
-The agent/, geo/, and models/ folders are intentionally treated as
-pluggable components. They can be connected here when teammates push
-their implementations.
+Those responsibilities belong to the geo module and AI model modules.
 """
 
 from __future__ import annotations
 
-import uuid
-from pathlib import Path
 from typing import Any
 
-from backend.schemas import (
-    AnalysisRequest,
-    AnalysisResult,
-    DetectedTask,
-    EvidenceItem,
-    Metric,
-)
+from agent.router import understand_query as run_agent_router
+from backend.errors import ModelError, ValidationError
+from backend.schemas import AnalysisRequest, AnalysisResult
+
+from geo.preprocessing import preprocess_images
+from geo.validation import validate_images
 
 
-# -------------------------------------------------------------------
-# Constants
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Query routing
+# ---------------------------------------------------------------------------
 
-SUPPORTED_TASKS = {
-    "vqa",
-    "visual_grounding",
-    "change_detection",
-    "optical_sar",
-}
+def understand_query(
+    query: str,
+    image_count: int,
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Route a request through the AI Agent's public LangGraph interface.
+
+    Keeping this thin adapter in the backend makes ``agent.router`` the
+    single owner of routing logic while preserving the backend's existing
+    orchestration interface.
+    """
+
+    try:
+        return run_agent_router(
+            query=query,
+            image_count=image_count,
+            metadata=metadata,
+        )
+    except ValueError as exc:
+        # Agent validation failures are client-correctable input errors,
+        # not backend/model failures.
+        raise ValidationError(str(exc)) from exc
 
 
-# -------------------------------------------------------------------
-# Trace helper
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Trace utilities
+# ---------------------------------------------------------------------------
 
 def _add_trace(
     trace: list[dict[str, Any]],
@@ -62,17 +78,10 @@ def _add_trace(
     latency: str = "N/A",
 ) -> None:
     """
-    Add one structured execution-trace entry.
+    Add a structured execution-trace item.
 
-    Frontend contract:
-
-    {
-        "step": 1,
-        "stage": "Query Understanding",
-        "details": "...",
-        "status": "completed",
-        "latency": "N/A"
-    }
+    The frontend expects trace entries to be dictionaries containing
+    fields such as step, stage, details and latency.
     """
 
     if step is None:
@@ -89,752 +98,16 @@ def _add_trace(
     )
 
 
-# -------------------------------------------------------------------
-# Public service entry point
-# -------------------------------------------------------------------
-
-def analyze(request: AnalysisRequest) -> AnalysisResult:
-    """
-    Main SatQuery analysis pipeline.
-
-    This function is called by FastAPI after uploaded images
-    have been saved to disk.
-    """
-
-    analysis_id = f"ANL-{uuid.uuid4().hex[:10].upper()}"
-
-    trace: list[dict[str, Any]] = []
-
-    try:
-
-        # -----------------------------------------------------------
-        # 1. Request received
-        # -----------------------------------------------------------
-
-        _add_trace(
-            trace,
-            stage="Request Received",
-            details="Analysis request received by SatQuery AI backend.",
-        )
-
-        _add_trace(
-            trace,
-            stage="Backend Initialization",
-            details="Backend analysis pipeline initialized.",
-        )
-
-        # -----------------------------------------------------------
-        # 2. Basic request validation
-        # -----------------------------------------------------------
-
-        _validate_request_inputs(request)
-
-        _add_trace(
-            trace,
-            stage="Input Validation",
-            details=(
-                f"Validated {len(request.image_paths)} uploaded "
-                f"image(s) successfully."
-            ),
-        )
-
-        # -----------------------------------------------------------
-        # 3. Query understanding / routing
-        # -----------------------------------------------------------
-
-        task_info = understand_query(
-            query=request.query,
-            image_count=len(request.image_paths),
-            mode=request.mode,
-        )
-
-        _add_trace(
-            trace,
-            stage="Query Understanding",
-            details=(
-                f"Detected task: {task_info['title']}."
-            ),
-        )
-
-        _add_trace(
-            trace,
-            stage="Agentic Routing",
-            details=task_info["reason"],
-        )
-
-        # -----------------------------------------------------------
-        # 4. Task-specific validation
-        # -----------------------------------------------------------
-
-        _validate_task_inputs(
-            task=task_info["task"],
-            image_paths=request.image_paths,
-        )
-
-        _add_trace(
-            trace,
-            stage="Task Validation",
-            details=(
-                f"Input requirements satisfied for "
-                f"{task_info['title']}."
-            ),
-        )
-
-        # -----------------------------------------------------------
-        # 5. Specialist analysis
-        # -----------------------------------------------------------
-
-        analysis_output = run_specialist_analysis(
-            task=task_info["task"],
-            request=request,
-            analysis_id=analysis_id,
-        )
-
-        specialist_trace = analysis_output.get("trace", [])
-
-        # Normalize specialist trace entries as well.
-        normalized_specialist_trace = _normalize_trace(
-            specialist_trace,
-            default_stage=f"{task_info['title']} Specialist",
-        )
-
-        trace.extend(normalized_specialist_trace)
-
-        _add_trace(
-            trace,
-            stage="Specialist Analysis",
-            details=(
-                f"{task_info['title']} specialist execution completed."
-            ),
-        )
-
-        # -----------------------------------------------------------
-        # 6. Build standardized response
-        # -----------------------------------------------------------
-
-        result = _build_result(
-            analysis_id=analysis_id,
-            request=request,
-            task_info=task_info,
-            analysis_output=analysis_output,
-            trace=trace,
-        )
-
-        return result
-
-    except ValueError as exc:
-
-        _add_trace(
-            trace,
-            stage="Validation Error",
-            details=str(exc),
-            status="failed",
-        )
-
-        return AnalysisResult(
-            success=False,
-            status="error",
-            analysis_id=analysis_id,
-            query=request.query,
-            mode=request.mode,
-            task="",
-            answer="",
-            confidence=None,
-            trace=trace,
-            analysis_trace=trace,
-            error=str(exc),
-        )
-
-    except Exception as exc:
-
-        _add_trace(
-            trace,
-            stage="Backend Error",
-            details=str(exc),
-            status="failed",
-        )
-
-        return AnalysisResult(
-            success=False,
-            status="error",
-            analysis_id=analysis_id,
-            query=request.query,
-            mode=request.mode,
-            task="",
-            answer="",
-            confidence=None,
-            trace=trace,
-            analysis_trace=trace,
-            error=f"Analysis failed: {exc}",
-        )
-
-
-# -------------------------------------------------------------------
-# Query understanding / routing
-# -------------------------------------------------------------------
-
-def understand_query(
-    query: str,
-    image_count: int,
-    mode: str,
-) -> dict[str, Any]:
-    """
-    Determine which SatQuery specialist should handle the query.
-
-    This is intentionally lightweight for the prototype.
-
-    Later this function can be replaced by the AI Agent team's
-    LangGraph/query-understanding implementation without changing
-    the rest of the backend.
-    """
-
-    query_lower = query.lower().strip()
-
-    # ---------------------------------------------------------------
-    # Explicit mode overrides
-    # ---------------------------------------------------------------
-
-    if mode == "compare_images":
-        return {
-            "task": "change_detection",
-            "title": "Change Detection",
-            "reason": "Compare-images mode explicitly requested.",
-            "required_images": 2,
-        }
-
-    if mode == "optical_sar":
-        return {
-            "task": "optical_sar",
-            "title": "Optical-SAR Analysis",
-            "reason": "Optical-SAR mode explicitly requested.",
-            "required_images": 2,
-        }
-
-    # ---------------------------------------------------------------
-    # Change detection keywords
-    # ---------------------------------------------------------------
-
-    change_keywords = [
-        "change",
-        "changes",
-        "changed",
-        "difference",
-        "differences",
-        "before and after",
-        "between images",
-        "compare",
-        "comparison",
-        "new construction",
-        "demolished",
-        "removed",
-        "built",
-        "development",
-        "2024",
-        "2025",
-        "2026",
-    ]
-
-    if any(keyword in query_lower for keyword in change_keywords):
-
-        if image_count >= 2:
-            return {
-                "task": "change_detection",
-                "title": "Change Detection",
-                "reason": (
-                    "The query describes temporal or comparative "
-                    "analysis and two images are available."
-                ),
-                "required_images": 2,
-            }
-
-    # ---------------------------------------------------------------
-    # Optical-SAR keywords
-    # ---------------------------------------------------------------
-
-    optical_sar_keywords = [
-        "sar",
-        "synthetic aperture radar",
-        "radar",
-        "backscatter",
-        "sar image",
-        "optical and sar",
-        "optical-sar",
-        "optical sar",
-        "flood mapping",
-        "flood detection",
-    ]
-
-    if any(
-        keyword in query_lower
-        for keyword in optical_sar_keywords
-    ):
-
-        if image_count >= 2:
-            return {
-                "task": "optical_sar",
-                "title": "Optical-SAR Analysis",
-                "reason": (
-                    "The query contains SAR/radar-related terminology "
-                    "and two images are available."
-                ),
-                "required_images": 2,
-            }
-
-    # ---------------------------------------------------------------
-    # Visual grounding keywords
-    # ---------------------------------------------------------------
-
-    grounding_keywords = [
-        "where",
-        "locate",
-        "location",
-        "find",
-        "highlight",
-        "bounding box",
-        "bounding boxes",
-        "bbox",
-        "coordinates",
-        "polygon",
-        "outline",
-        "identify the location",
-        "show me where",
-    ]
-
-    if any(
-        keyword in query_lower
-        for keyword in grounding_keywords
-    ):
-
-        return {
-            "task": "visual_grounding",
-            "title": "Visual Grounding",
-            "reason": (
-                "The query asks for the location or spatial extent "
-                "of an object or region."
-            ),
-            "required_images": 1,
-        }
-
-    # ---------------------------------------------------------------
-    # Default → VQA
-    # ---------------------------------------------------------------
-
-    return {
-        "task": "vqa",
-        "title": "Visual Question Answering",
-        "reason": (
-            "The query is treated as a visual question about "
-            "the supplied remote-sensing image."
-        ),
-        "required_images": 1,
-    }
-
-
-# -------------------------------------------------------------------
-# Task-specific validation
-# -------------------------------------------------------------------
-
-def _validate_task_inputs(
-    task: str,
-    image_paths: list[str],
-) -> None:
-    """
-    Validate that the selected task has the required number of images.
-    """
-
-    image_count = len(image_paths)
-
-    if task not in SUPPORTED_TASKS:
-        raise ValueError(
-            f"Unsupported analysis task: {task}"
-        )
-
-    if task in {
-        "vqa",
-        "visual_grounding",
-    }:
-
-        if image_count != 1:
-            raise ValueError(
-                f"{task} requires exactly one image."
-            )
-
-    elif task in {
-        "change_detection",
-        "optical_sar",
-    }:
-
-        if image_count != 2:
-            raise ValueError(
-                f"{task} requires exactly two images."
-            )
-
-
-# -------------------------------------------------------------------
-# Specialist analysis dispatcher
-# -------------------------------------------------------------------
-
-def run_specialist_analysis(
-    task: str,
-    request: AnalysisRequest,
-    analysis_id: str,
-) -> dict[str, Any]:
-    """
-    Dispatch request to the appropriate specialist adapter.
-    """
-
-    if task == "vqa":
-
-        return run_vqa(
-            image_path=request.image_paths[0],
-            query=request.query,
-            analysis_id=analysis_id,
-        )
-
-    if task == "visual_grounding":
-
-        return run_grounding(
-            image_path=request.image_paths[0],
-            query=request.query,
-            analysis_id=analysis_id,
-        )
-
-    if task == "change_detection":
-
-        return run_change_detection(
-            image1_path=request.image_paths[0],
-            image2_path=request.image_paths[1],
-            query=request.query,
-            analysis_id=analysis_id,
-        )
-
-    if task == "optical_sar":
-
-        return run_optical_sar(
-            optical_path=request.image_paths[0],
-            sar_path=request.image_paths[1],
-            query=request.query,
-            analysis_id=analysis_id,
-        )
-
-    raise ValueError(
-        f"No specialist available for task: {task}"
-    )
-
-
-# -------------------------------------------------------------------
-# VQA adapter
-# -------------------------------------------------------------------
-
-def run_vqa(
-    image_path: str,
-    query: str,
-    analysis_id: str,
-) -> dict[str, Any]:
-    """
-    VQA specialist adapter.
-
-    TODO:
-        Connect the AI Models team's VQA implementation here.
-    """
-
-    return {
-        "answer": (
-            "VQA model integration is pending. "
-            "The query was successfully routed to the "
-            "Visual Question Answering pipeline."
-        ),
-
-        "confidence": 0.50,
-
-        "confidence_breakdown": {
-            "query_understanding": 0.90,
-            "model_confidence": 0.50,
-            "evidence_quality": 0.40,
-        },
-
-        "summary_bullets": [
-            "Query routed to Visual Question Answering.",
-            "One satellite image was provided.",
-            "VQA specialist model is ready to be connected.",
-        ],
-
-        "metrics": {},
-
-        "evidence": [],
-
-        "output_paths": [],
-
-        "trace": [
-            "VQA specialist selected",
-            "VQA model adapter executed",
-        ],
-    }
-
-
-# -------------------------------------------------------------------
-# Visual grounding adapter
-# -------------------------------------------------------------------
-
-def run_grounding(
-    image_path: str,
-    query: str,
-    analysis_id: str,
-) -> dict[str, Any]:
-    """
-    Visual grounding specialist adapter.
-
-    TODO:
-        Connect GeoChat/SAM or the team's grounding implementation.
-    """
-
-    return {
-        "answer": (
-            "Visual grounding model integration is pending. "
-            "The query was successfully routed to the "
-            "Visual Grounding pipeline."
-        ),
-
-        "confidence": 0.50,
-
-        "confidence_breakdown": {
-            "query_understanding": 0.90,
-            "model_confidence": 0.50,
-            "spatial_evidence": 0.40,
-        },
-
-        "summary_bullets": [
-            "Query routed to Visual Grounding.",
-            "One satellite image was provided.",
-            "Grounding model adapter is ready for integration.",
-        ],
-
-        "metrics": {},
-
-        "evidence": [],
-
-        "output_paths": [],
-
-        "trace": [
-            "Visual Grounding specialist selected",
-            "Grounding model adapter executed",
-        ],
-    }
-
-
-# -------------------------------------------------------------------
-# Change detection adapter
-# -------------------------------------------------------------------
-
-def run_change_detection(
-    image1_path: str,
-    image2_path: str,
-    query: str,
-    analysis_id: str,
-) -> dict[str, Any]:
-    """
-    Bi-temporal change detection specialist adapter.
-
-    TODO:
-        Connect Open-CD / BIT-CD or the team's actual
-        change-detection implementation.
-    """
-
-    return {
-        "answer": (
-            "Change detection model integration is pending. "
-            "Two images were successfully received and routed "
-            "to the change detection pipeline."
-        ),
-
-        "confidence": 0.50,
-
-        "confidence_breakdown": {
-            "query_understanding": 0.90,
-            "model_confidence": 0.50,
-            "temporal_alignment": 0.50,
-        },
-
-        "summary_bullets": [
-            "Query routed to Bi-temporal Change Detection.",
-            "Two satellite images were provided.",
-            "Change detection model adapter is ready for integration.",
-        ],
-
-        "metrics": {},
-
-        "evidence": [],
-
-        "output_paths": [],
-
-        "trace": [
-            "Change Detection specialist selected",
-            "Bi-temporal model adapter executed",
-        ],
-    }
-
-
-# -------------------------------------------------------------------
-# Optical-SAR adapter
-# -------------------------------------------------------------------
-
-def run_optical_sar(
-    optical_path: str,
-    sar_path: str,
-    query: str,
-    analysis_id: str,
-) -> dict[str, Any]:
-    """
-    Optical-SAR specialist adapter.
-
-    TODO:
-        Connect the team's optical-SAR preprocessing/fusion/model
-        implementation.
-    """
-
-    return {
-        "answer": (
-            "Optical-SAR model integration is pending. "
-            "The optical and SAR inputs were successfully received "
-            "and routed to the multimodal analysis pipeline."
-        ),
-
-        "confidence": 0.50,
-
-        "confidence_breakdown": {
-            "query_understanding": 0.90,
-            "model_confidence": 0.50,
-            "modality_alignment": 0.40,
-        },
-
-        "summary_bullets": [
-            "Query routed to Optical-SAR analysis.",
-            "Optical and SAR inputs were provided.",
-            "Optical-SAR model adapter is ready for integration.",
-        ],
-
-        "metrics": {},
-
-        "evidence": [],
-
-        "output_paths": [],
-
-        "trace": [
-            "Optical-SAR specialist selected",
-            "Optical-SAR model adapter executed",
-        ],
-    }
-
-
-# -------------------------------------------------------------------
-# Result construction
-# -------------------------------------------------------------------
-
-def _build_result(
-    analysis_id: str,
-    request: AnalysisRequest,
-    task_info: dict[str, Any],
-    analysis_output: dict[str, Any],
-    trace: list[dict[str, Any]],
-) -> AnalysisResult:
-    """
-    Convert specialist output into the standard SatQuery response.
-    """
-
-    # Normalize the complete trace before sending it to the frontend.
-    trace = _normalize_trace(trace)
-
-    _add_trace(
-        trace,
-        stage="Result Construction",
-        details="Standardized analysis result assembled.",
-    )
-
-    evidence_items = _normalise_evidence(
-        analysis_output.get("evidence", [])
-    )
-
-    visual_evidence = _build_visual_evidence(
-        evidence_items
-    )
-
-    metrics = _normalise_metrics(
-        analysis_output.get("metrics", {})
-    )
-
-    confidence = analysis_output.get(
-        "confidence"
-    )
-
-    return AnalysisResult(
-        success=True,
-        status="success",
-        analysis_id=analysis_id,
-        query=request.query,
-        mode=request.mode,
-        task=task_info["task"],
-
-        detected_task=DetectedTask(
-            task_id=task_info["task"],
-            title=task_info["title"],
-            reason=task_info["reason"],
-            required_images=task_info["required_images"],
-        ),
-
-        answer=analysis_output.get(
-            "answer",
-            "",
-        ),
-
-        confidence=confidence,
-
-        confidence_breakdown=analysis_output.get(
-            "confidence_breakdown",
-            {},
-        ),
-
-        summary_bullets=analysis_output.get(
-            "summary_bullets",
-            [],
-        ),
-
-        metrics=metrics,
-
-        evidence=evidence_items,
-
-        visual_evidence=visual_evidence,
-
-        output_paths=analysis_output.get(
-            "output_paths",
-            [],
-        ),
-
-        statistics=analysis_output.get(
-            "statistics",
-            {},
-        ),
-
-        trace=trace,
-
-        analysis_trace=trace,
-
-        error=None,
-    )
-
-
-# -------------------------------------------------------------------
-# Trace normalization
-# -------------------------------------------------------------------
-
 def _normalize_trace(
     trace: list[Any],
     default_stage: str = "Analysis Step",
 ) -> list[dict[str, Any]]:
     """
-    Normalize trace entries into the standard SatQuery contract.
+    Normalize trace entries returned by specialist modules.
 
-    This protects the backend if a teammate's module returns
-    plain strings instead of structured dictionaries.
+    Supports both:
+    - structured dictionaries
+    - legacy string trace entries
     """
 
     normalized: list[dict[str, Any]] = []
@@ -842,44 +115,17 @@ def _normalize_trace(
     for index, item in enumerate(trace, start=1):
 
         if isinstance(item, dict):
-
             normalized.append(
                 {
-                    "step": item.get(
-                        "step",
-                        index,
-                    ),
-
-                    "stage": item.get(
-                        "stage",
-                        item.get(
-                            "title",
-                            default_stage,
-                        ),
-                    ),
-
-                    "details": item.get(
-                        "details",
-                        item.get(
-                            "description",
-                            "",
-                        ),
-                    ),
-
-                    "status": item.get(
-                        "status",
-                        "completed",
-                    ),
-
-                    "latency": item.get(
-                        "latency",
-                        "N/A",
-                    ),
+                    "step": item.get("step", index),
+                    "stage": item.get("stage", default_stage),
+                    "details": item.get("details", ""),
+                    "status": item.get("status", "completed"),
+                    "latency": item.get("latency", "N/A"),
                 }
             )
 
         else:
-
             normalized.append(
                 {
                     "step": index,
@@ -893,178 +139,573 @@ def _normalize_trace(
     return normalized
 
 
-# -------------------------------------------------------------------
-# Evidence normalization
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Specialist adapters
+# ---------------------------------------------------------------------------
 
-def _normalise_evidence(
-    evidence: list[Any],
-) -> list[EvidenceItem]:
-    """
-    Convert raw evidence dictionaries into EvidenceItem objects.
-    """
-
-    normalized: list[EvidenceItem] = []
-
-    for item in evidence:
-
-        if isinstance(item, EvidenceItem):
-
-            normalized.append(item)
-            continue
-
-        if isinstance(item, dict):
-
-            normalized.append(
-                EvidenceItem(
-                    type=str(
-                        item.get(
-                            "type",
-                            "unknown",
-                        )
-                    ),
-
-                    label=str(
-                        item.get(
-                            "label",
-                            "",
-                        )
-                    ),
-
-                    url=item.get(
-                        "url"
-                    ),
-
-                    path=item.get(
-                        "path"
-                    ),
-
-                    description=str(
-                        item.get(
-                            "description",
-                            "",
-                        )
-                    ),
-                )
-            )
-
-    return normalized
-
-
-def _build_visual_evidence(
-    evidence: list[EvidenceItem],
+def run_vqa(
+    image_path: str,
+    query: str,
 ) -> dict[str, Any]:
     """
-    Create a frontend-compatible evidence mapping.
+    VQA specialist adapter.
 
-    The frontend API client can later download these URLs and
-    convert them into PIL images.
+    Currently returns a placeholder result.
+
+    The real VQA model can later be connected here without changing
+    the rest of the backend pipeline.
     """
 
-    result: dict[str, Any] = {}
+    return {
+        "success": True,
+        "answer": (
+            "VQA model integration is pending. "
+            "The image was successfully validated and preprocessed, "
+            "and the query was routed to the Visual Question "
+            "Answering pipeline."
+        ),
+        "confidence": 0.50,
+        "confidence_breakdown": {
+            "model": 0.50,
+            "routing": 1.00,
+            "input_validation": 1.00,
+        },
+        "summary_bullets": [
+            "Image successfully passed through the Geo preprocessing pipeline.",
+            "Query was routed to Visual Question Answering.",
+            "Real VQA model integration is pending.",
+        ],
+        "evidence": [],
+        "visual_evidence": {
+            "image_a": image_path,
+        },
+        "output_paths": [],
+        "statistics": {},
+        "trace": [
+            {
+                "stage": "VQA Specialist",
+                "details": "VQA specialist adapter executed successfully.",
+            }
+        ],
+    }
 
-    for item in evidence:
 
-        if item.url:
-
-            result[item.type] = item.url
-
-        elif item.path:
-
-            result[item.type] = item.path
-
-    return result
-
-
-# -------------------------------------------------------------------
-# Metrics normalization
-# -------------------------------------------------------------------
-
-def _normalise_metrics(
-    metrics: dict[str, Any],
-) -> dict[str, Metric]:
+def run_grounding(
+    image_path: str,
+    query: str,
+) -> dict[str, Any]:
     """
-    Normalize metrics into the schema expected by the frontend.
+    Visual grounding specialist adapter.
+
+    Currently returns a placeholder result.
     """
 
-    normalized: dict[str, Metric] = {}
+    return {
+        "success": True,
+        "answer": (
+            "Visual grounding model integration is pending. "
+            "The image was successfully validated and preprocessed, "
+            "and the query was routed to the Visual Grounding pipeline."
+        ),
+        "confidence": 0.50,
+        "confidence_breakdown": {
+            "model": 0.50,
+            "routing": 1.00,
+            "input_validation": 1.00,
+        },
+        "summary_bullets": [
+            "Image successfully passed through the Geo preprocessing pipeline.",
+            "Query was routed to Visual Grounding.",
+            "Real grounding model integration is pending.",
+        ],
+        "evidence": [],
+        "visual_evidence": {
+            "image_a": image_path,
+        },
+        "output_paths": [],
+        "statistics": {},
+        "trace": [
+            {
+                "stage": "Grounding Specialist",
+                "details": "Grounding specialist adapter executed successfully.",
+            }
+        ],
+    }
 
-    for key, value in metrics.items():
 
-        if isinstance(value, Metric):
+def run_change_detection(
+    image1_path: str,
+    image2_path: str,
+) -> dict[str, Any]:
+    """
+    Change detection specialist adapter.
 
-            normalized[key] = value
+    Currently returns a placeholder result.
 
-        elif isinstance(value, dict):
+    The Geo preprocessing layer is responsible for preparing/alignment
+    of the input images before this function is called.
+    """
 
-            normalized[key] = Metric(
-                value=value.get(
-                    "value"
+    return {
+        "success": True,
+        "answer": (
+            "Change detection model integration is pending. "
+            "Both images were successfully validated and preprocessed, "
+            "and the inputs are ready for the change detection model."
+        ),
+        "confidence": 0.50,
+        "confidence_breakdown": {
+            "model": 0.50,
+            "routing": 1.00,
+            "input_validation": 1.00,
+        },
+        "summary_bullets": [
+            "Both temporal images passed Geo validation.",
+            "Images were prepared by the Geo preprocessing pipeline.",
+            "Real change detection model integration is pending.",
+        ],
+        "evidence": [],
+        "visual_evidence": {
+            "image_a": image1_path,
+            "image_b": image2_path,
+        },
+        "output_paths": [],
+        "statistics": {},
+        "trace": [
+            {
+                "stage": "Change Detection Specialist",
+                "details": (
+                    "Change detection specialist adapter "
+                    "executed successfully."
                 ),
+            }
+        ],
+    }
 
-                unit=str(
-                    value.get(
-                        "unit",
-                        "",
-                    )
+
+def run_optical_sar(
+    optical_path: str,
+    sar_path: str,
+    query: str,
+) -> dict[str, Any]:
+    """
+    Optical-SAR specialist adapter.
+
+    Currently returns a placeholder result.
+    """
+
+    return {
+        "success": True,
+        "answer": (
+            "Optical-SAR model integration is pending. "
+            "The optical and SAR inputs were successfully validated "
+            "and preprocessed."
+        ),
+        "confidence": 0.50,
+        "confidence_breakdown": {
+            "model": 0.50,
+            "routing": 1.00,
+            "input_validation": 1.00,
+        },
+        "summary_bullets": [
+            "Optical and SAR inputs passed Geo validation.",
+            "Inputs were prepared by the Geo preprocessing pipeline.",
+            "Real Optical-SAR model integration is pending.",
+        ],
+        "evidence": [],
+        "visual_evidence": {
+            "image_a": optical_path,
+            "image_b": sar_path,
+        },
+        "output_paths": [],
+        "statistics": {},
+        "trace": [
+            {
+                "stage": "Optical-SAR Specialist",
+                "details": (
+                    "Optical-SAR specialist adapter "
+                    "executed successfully."
                 ),
-            )
-
-        else:
-
-            normalized[key] = Metric(
-                value=value,
-                unit="",
-            )
-
-    return normalized
+            }
+        ],
+    }
 
 
-# -------------------------------------------------------------------
-# Internal validation
-# -------------------------------------------------------------------
+# ---------------------------------------------------------------------------
+# Result construction
+# ---------------------------------------------------------------------------
 
-def _validate_request_inputs(
+def _build_result(
     request: AnalysisRequest,
-) -> None:
+    task: str,
+    detected_task: dict[str, Any],
+    specialist_result: dict[str, Any],
+    trace: list[dict[str, Any]],
+) -> AnalysisResult:
     """
-    Service-level validation.
-
-    FastAPI performs API-level validation and validator.py handles
-    request validation. This function protects the service itself
-    when called directly from tests or other Python code.
+    Convert a specialist result into the standard AnalysisResult schema.
     """
 
-    if not request.query.strip():
+    specialist_trace = _normalize_trace(
+        specialist_result.get("trace", []),
+        default_stage="Specialist Analysis",
+    )
 
-        raise ValueError(
-            "Query cannot be empty."
+    for item in specialist_trace:
+        item["step"] = len(trace) + 1
+        trace.append(item)
+
+    _add_trace(
+        trace,
+        "Specialist Analysis",
+        "Specialist analysis completed.",
+    )
+
+    # Evidence normalization
+    evidence = specialist_result.get("evidence", [])
+
+    if evidence is None:
+        evidence = []
+
+    # Visual evidence normalization
+    visual_evidence = specialist_result.get(
+        "visual_evidence",
+        {},
+    )
+
+    if visual_evidence is None:
+        visual_evidence = {}
+
+    # Statistics normalization
+    statistics = specialist_result.get(
+        "statistics",
+        {},
+    )
+
+    if statistics is None:
+        statistics = {}
+
+    # Output paths normalization
+    output_paths = specialist_result.get(
+        "output_paths",
+        [],
+    )
+
+    if output_paths is None:
+        output_paths = []
+
+    # Summary bullets normalization
+    summary_bullets = specialist_result.get(
+        "summary_bullets",
+        [],
+    )
+
+    if summary_bullets is None:
+        summary_bullets = []
+
+    _add_trace(
+        trace,
+        "Result Assembly",
+        "Analysis result assembled successfully.",
+    )
+
+    return AnalysisResult(
+        success=bool(specialist_result.get("success", False)),
+        status=(
+            "success"
+            if specialist_result.get("success", False)
+            else "failed"
+        ),
+        query=request.query,
+        mode=request.mode,
+        task=task,
+        detected_task={
+            "task_id": task,
+            "title": task.replace("_", " ").title(),
+            "reason": detected_task.get("reason", ""),
+            "required_images": detected_task.get(
+                "required_images",
+                1,
+            ),
+        },
+        answer=specialist_result.get("answer", ""),
+        confidence=specialist_result.get("confidence"),
+        confidence_breakdown=specialist_result.get(
+            "confidence_breakdown",
+            {},
+        ),
+        summary_bullets=summary_bullets,
+        metrics=specialist_result.get("metrics", {}),
+        evidence=evidence,
+        visual_evidence=visual_evidence,
+        output_paths=output_paths,
+        statistics=statistics,
+        trace=trace,
+        analysis_trace=trace,
+        error=specialist_result.get("error"),
+    )
+
+
+# ---------------------------------------------------------------------------
+# Main analysis orchestration
+# ---------------------------------------------------------------------------
+
+def analyze(request: AnalysisRequest) -> AnalysisResult:
+    """
+    Main SatQuery AI analysis pipeline.
+
+    Pipeline
+    --------
+    1. Validate request-level information
+    2. Understand the natural-language query
+    3. Determine analysis task
+    4. Validate images through geo.validation
+    5. Preprocess images through geo.preprocessing
+    6. Run the appropriate specialist adapter
+    7. Assemble AnalysisResult
+    """
+
+    trace: list[dict[str, Any]] = []
+
+    _add_trace(
+        trace,
+        "Request Received",
+        "Backend analysis request received.",
+    )
+
+    # ------------------------------------------------------------------
+    # 1. Request-level validation
+    # ------------------------------------------------------------------
+
+    if not request.query or not request.query.strip():
+        raise ValidationError(
+            "Analysis query cannot be empty."
         )
 
     if not request.image_paths:
-
-        raise ValueError(
-            "At least one image is required."
+        raise ValidationError(
+            "At least one image must be provided."
         )
 
     if len(request.image_paths) > 2:
-
-        raise ValueError(
+        raise ValidationError(
             "A maximum of two images is supported."
         )
 
-    for image_path in request.image_paths:
+    _add_trace(
+        trace,
+        "Request Validation",
+        "Query and request structure are valid.",
+    )
 
-        if not image_path.strip():
+    # ------------------------------------------------------------------
+    # 2. Query understanding / routing
+    # ------------------------------------------------------------------
 
-            raise ValueError(
-                "Image path cannot be empty."
+    routing = understand_query(
+    query=request.query,
+    image_count=len(request.image_paths),
+    metadata=request.metadata_a
+)
+
+    task = routing["task"]
+
+    _add_trace(
+        trace,
+        "Query Understanding",
+        routing["reason"],
+    )
+
+    _add_trace(
+        trace,
+        "Task Routing",
+        f"Query routed to the '{task}' analysis pipeline.",
+    )
+
+    # ------------------------------------------------------------------
+    # 3. Geo image validation
+    # ------------------------------------------------------------------
+
+    validation_result = validate_images(
+        request.image_paths,
+        task,
+    )
+
+    if not validation_result.get("valid", False):
+        message = validation_result.get(
+            "message",
+            "Image validation failed.",
+        )
+
+        _add_trace(
+            trace,
+            "Image Validation",
+            message,
+            status="failed",
+        )
+
+        raise ValidationError(message)
+
+    _add_trace(
+        trace,
+        "Image Validation",
+        validation_result.get(
+            "message",
+            "Input images are valid.",
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # 4. Geo preprocessing
+    # ------------------------------------------------------------------
+
+    _add_trace(
+        trace,
+        "Image Preprocessing",
+        "Starting Geo image preprocessing.",
+        status="running",
+    )
+
+    preprocessing_result = preprocess_images(
+        request.image_paths,
+        task,
+    )
+
+    if not preprocessing_result.get("success", False):
+        message = preprocessing_result.get(
+            "error",
+            "Image preprocessing failed.",
+        )
+
+        _add_trace(
+            trace,
+            "Image Preprocessing",
+            message,
+            status="failed",
+        )
+
+        raise ValidationError(message)
+
+    processed_paths = preprocessing_result.get(
+        "image_paths",
+        [],
+    )
+
+    if not processed_paths:
+        message = (
+            "Image preprocessing completed but returned "
+            "no processed image paths."
+        )
+
+        _add_trace(
+            trace,
+            "Image Preprocessing",
+            message,
+            status="failed",
+        )
+
+        raise ValidationError(message)
+
+    preprocessing_metadata = preprocessing_result.get(
+        "metadata",
+        {},
+    )
+
+    _add_trace(
+        trace,
+        "Image Preprocessing",
+        (
+            f"Geo preprocessing completed successfully for "
+            f"{len(processed_paths)} image(s)."
+        ),
+    )
+
+    # ------------------------------------------------------------------
+    # 5. Specialist execution
+    # ------------------------------------------------------------------
+
+    try:
+
+        if task == "vqa":
+
+            specialist_result = run_vqa(
+                image_path=processed_paths[0],
+                query=request.query,
             )
 
-        path = Path(image_path)
+        elif task == "grounding":
 
-        if not path.exists():
-
-            raise ValueError(
-                f"Image file does not exist: {image_path}"
+            specialist_result = run_grounding(
+                image_path=processed_paths[0],
+                query=request.query,
             )
+
+        elif task == "change_detection":
+
+            if len(processed_paths) < 2:
+                raise ModelError(
+                    "Change detection requires two processed images."
+                )
+
+            specialist_result = run_change_detection(
+                image1_path=processed_paths[0],
+                image2_path=processed_paths[1],
+            )
+
+        elif task == "optical_sar":
+
+            if len(processed_paths) < 2:
+                raise ModelError(
+                    "Optical-SAR analysis requires two processed images."
+                )
+
+            specialist_result = run_optical_sar(
+                optical_path=processed_paths[0],
+                sar_path=processed_paths[1],
+                query=request.query,
+            )
+
+        else:
+            raise ValidationError(
+                f"Unsupported analysis task: {task}"
+            )
+
+    except (ValidationError, ModelError):
+        raise
+
+    except Exception as exc:
+        raise ModelError(
+            f"Specialist analysis failed: {exc}"
+        ) from exc
+
+    # ------------------------------------------------------------------
+    # 6. Add preprocessing metadata to statistics
+    # ------------------------------------------------------------------
+
+    if preprocessing_metadata:
+        specialist_statistics = specialist_result.get(
+            "statistics",
+            {},
+        )
+
+        if specialist_statistics is None:
+            specialist_statistics = {}
+
+        specialist_statistics.setdefault(
+            "preprocessing",
+            preprocessing_metadata,
+        )
+
+        specialist_result["statistics"] = specialist_statistics
+
+    # ------------------------------------------------------------------
+    # 7. Build standardized result
+    # ------------------------------------------------------------------
+
+    return _build_result(
+        request=request,
+        task=task,
+        detected_task=routing,
+        specialist_result=specialist_result,
+        trace=trace,
+    )
