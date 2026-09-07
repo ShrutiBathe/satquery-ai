@@ -8,6 +8,12 @@ from typing import Any, Optional
 
 from pydantic import BaseModel, Field
 
+class TraceItem(BaseModel):
+    step: int = 1
+    stage: str = "Analysis Step"
+    details: str = ""
+    status: str = "completed"
+    latency: str = "N/A"
 
 class AnalysisRequest(BaseModel):
     """
@@ -214,15 +220,8 @@ class AnalysisResult(BaseModel):
         description="Additional analysis statistics.",
     )
 
-    trace: list[str] = Field(
-        default_factory=list,
-        description="Execution trace of the analysis pipeline.",
-    )
-
-    analysis_trace: list[str] = Field(
-        default_factory=list,
-        description="Frontend-compatible execution trace.",
-    )
+    trace: list[TraceItem] = Field(default_factory=list)
+    analysis_trace: list[TraceItem] = Field(default_factory=list)
 
     error: Optional[str] = Field(
         default=None,

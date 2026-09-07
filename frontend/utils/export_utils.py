@@ -54,13 +54,21 @@ def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str,
 
 ## 4. Agentic Execution Trace
 """
-    for idx, trace in enumerate(result.get("analysis_trace", []), start=1):
-        report += f"{idx}. **{trace.get('stage', 'Stage')}**: {trace.get('details', '')} *(Latency: {trace.get('latency', 'N/A')})*\n"
+    for idx, trace in enumerate(result.get("analysis_trace", []), 1):
+        if isinstance(trace, dict):
+            stage = trace.get("stage", "Stage")
+            details = trace.get("details", "")
+            latency = trace.get("latency", "N/A")
+        else:
+            # Backend may currently return trace entries as plain strings.
+            stage = "Stage"
+            details = str(trace)
+            latency = "N/A"
 
-    report += """
----
-*Notice: This report was generated autonomously by SatQuery AI. Ground truth verification is recommended before critical operational deployment.*
-"""
+        report += (
+            f"{idx}. **{stage}**: {details} "
+            f"*(Latency: {latency})*\n"
+        )
     return report.strip()
 
 

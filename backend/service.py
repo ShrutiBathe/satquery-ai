@@ -1,9 +1,9 @@
 """
 SatQuery AI - Analysis Service
 
-This module is the main orchestration layer of the backend.
+Main orchestration layer of the SatQuery AI backend.
 
-Current prototype flow:
+Prototype flow:
 
     Request
        ↓
@@ -24,7 +24,6 @@ their implementations.
 
 from __future__ import annotations
 
-import re
 import uuid
 from pathlib import Path
 from typing import Any
@@ -51,6 +50,46 @@ SUPPORTED_TASKS = {
 
 
 # -------------------------------------------------------------------
+# Trace helper
+# -------------------------------------------------------------------
+
+def _add_trace(
+    trace: list[dict[str, Any]],
+    stage: str,
+    details: str,
+    step: int | None = None,
+    status: str = "completed",
+    latency: str = "N/A",
+) -> None:
+    """
+    Add one structured execution-trace entry.
+
+    Frontend contract:
+
+    {
+        "step": 1,
+        "stage": "Query Understanding",
+        "details": "...",
+        "status": "completed",
+        "latency": "N/A"
+    }
+    """
+
+    if step is None:
+        step = len(trace) + 1
+
+    trace.append(
+        {
+            "step": step,
+            "stage": stage,
+            "details": details,
+            "status": status,
+            "latency": latency,
+        }
+    )
+
+
+# -------------------------------------------------------------------
 # Public service entry point
 # -------------------------------------------------------------------
 
@@ -58,28 +97,49 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
     """
     Main SatQuery analysis pipeline.
 
-    This is the function called by FastAPI after receiving and saving
-    uploaded images.
+    This function is called by FastAPI after uploaded images
+    have been saved to disk.
     """
 
     analysis_id = f"ANL-{uuid.uuid4().hex[:10].upper()}"
 
-    trace: list[str] = [
-        "Request received",
-        "Backend analysis started",
-    ]
+    trace: list[dict[str, Any]] = []
 
     try:
+
         # -----------------------------------------------------------
-        # 1. Basic request validation
+        # 1. Request received
+        # -----------------------------------------------------------
+
+        _add_trace(
+            trace,
+            stage="Request Received",
+            details="Analysis request received by SatQuery AI backend.",
+        )
+
+        _add_trace(
+            trace,
+            stage="Backend Initialization",
+            details="Backend analysis pipeline initialized.",
+        )
+
+        # -----------------------------------------------------------
+        # 2. Basic request validation
         # -----------------------------------------------------------
 
         _validate_request_inputs(request)
 
-        trace.append("Input validation completed")
+        _add_trace(
+            trace,
+            stage="Input Validation",
+            details=(
+                f"Validated {len(request.image_paths)} uploaded "
+                f"image(s) successfully."
+            ),
+        )
 
         # -----------------------------------------------------------
-        # 2. Understand query and determine task
+        # 3. Query understanding / routing
         # -----------------------------------------------------------
 
         task_info = understand_query(
@@ -88,16 +148,22 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
             mode=request.mode,
         )
 
-        trace.append(
-            f"Task selected: {task_info['task']}"
+        _add_trace(
+            trace,
+            stage="Query Understanding",
+            details=(
+                f"Detected task: {task_info['title']}."
+            ),
         )
 
-        trace.append(
-            f"Routing reason: {task_info['reason']}"
+        _add_trace(
+            trace,
+            stage="Agentic Routing",
+            details=task_info["reason"],
         )
 
         # -----------------------------------------------------------
-        # 3. Task-specific input validation
+        # 4. Task-specific validation
         # -----------------------------------------------------------
 
         _validate_task_inputs(
@@ -105,12 +171,17 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
             image_paths=request.image_paths,
         )
 
-        trace.append(
-            f"Task input validation passed for {task_info['task']}"
+        _add_trace(
+            trace,
+            stage="Task Validation",
+            details=(
+                f"Input requirements satisfied for "
+                f"{task_info['title']}."
+            ),
         )
 
         # -----------------------------------------------------------
-        # 4. Run specialist analysis
+        # 5. Specialist analysis
         # -----------------------------------------------------------
 
         analysis_output = run_specialist_analysis(
@@ -119,12 +190,26 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
             analysis_id=analysis_id,
         )
 
-        trace.extend(
-            analysis_output.get("trace", [])
+        specialist_trace = analysis_output.get("trace", [])
+
+        # Normalize specialist trace entries as well.
+        normalized_specialist_trace = _normalize_trace(
+            specialist_trace,
+            default_stage=f"{task_info['title']} Specialist",
+        )
+
+        trace.extend(normalized_specialist_trace)
+
+        _add_trace(
+            trace,
+            stage="Specialist Analysis",
+            details=(
+                f"{task_info['title']} specialist execution completed."
+            ),
         )
 
         # -----------------------------------------------------------
-        # 5. Build standardized response
+        # 6. Build standardized response
         # -----------------------------------------------------------
 
         result = _build_result(
@@ -139,7 +224,12 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
 
     except ValueError as exc:
 
-        trace.append(f"Validation failed: {exc}")
+        _add_trace(
+            trace,
+            stage="Validation Error",
+            details=str(exc),
+            status="failed",
+        )
 
         return AnalysisResult(
             success=False,
@@ -157,8 +247,11 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
 
     except Exception as exc:
 
-        trace.append(
-            f"Unexpected analysis error: {exc}"
+        _add_trace(
+            trace,
+            stage="Backend Error",
+            details=str(exc),
+            status="failed",
         )
 
         return AnalysisResult(
@@ -242,6 +335,7 @@ def understand_query(
     ]
 
     if any(keyword in query_lower for keyword in change_keywords):
+
         if image_count >= 2:
             return {
                 "task": "change_detection",
@@ -270,7 +364,11 @@ def understand_query(
         "flood detection",
     ]
 
-    if any(keyword in query_lower for keyword in optical_sar_keywords):
+    if any(
+        keyword in query_lower
+        for keyword in optical_sar_keywords
+    ):
+
         if image_count >= 2:
             return {
                 "task": "optical_sar",
@@ -302,7 +400,11 @@ def understand_query(
         "show me where",
     ]
 
-    if any(keyword in query_lower for keyword in grounding_keywords):
+    if any(
+        keyword in query_lower
+        for keyword in grounding_keywords
+    ):
+
         return {
             "task": "visual_grounding",
             "title": "Visual Grounding",
@@ -347,7 +449,11 @@ def _validate_task_inputs(
             f"Unsupported analysis task: {task}"
         )
 
-    if task in {"vqa", "visual_grounding"}:
+    if task in {
+        "vqa",
+        "visual_grounding",
+    }:
+
         if image_count != 1:
             raise ValueError(
                 f"{task} requires exactly one image."
@@ -357,6 +463,7 @@ def _validate_task_inputs(
         "change_detection",
         "optical_sar",
     }:
+
         if image_count != 2:
             raise ValueError(
                 f"{task} requires exactly two images."
@@ -373,23 +480,11 @@ def run_specialist_analysis(
     analysis_id: str,
 ) -> dict[str, Any]:
     """
-    Dispatch the request to the appropriate specialist.
-
-    IMPORTANT:
-    The specialist implementations are intentionally isolated behind
-    adapter functions.
-
-    When teammates push actual implementations:
-
-        agent/
-        geo/
-        models/
-
-    we replace the corresponding adapter body rather than rewriting
-    the backend pipeline.
+    Dispatch request to the appropriate specialist adapter.
     """
 
     if task == "vqa":
+
         return run_vqa(
             image_path=request.image_paths[0],
             query=request.query,
@@ -397,6 +492,7 @@ def run_specialist_analysis(
         )
 
     if task == "visual_grounding":
+
         return run_grounding(
             image_path=request.image_paths[0],
             query=request.query,
@@ -404,6 +500,7 @@ def run_specialist_analysis(
         )
 
     if task == "change_detection":
+
         return run_change_detection(
             image1_path=request.image_paths[0],
             image2_path=request.image_paths[1],
@@ -412,6 +509,7 @@ def run_specialist_analysis(
         )
 
     if task == "optical_sar":
+
         return run_optical_sar(
             optical_path=request.image_paths[0],
             sar_path=request.image_paths[1],
@@ -446,20 +544,27 @@ def run_vqa(
             "The query was successfully routed to the "
             "Visual Question Answering pipeline."
         ),
+
         "confidence": 0.50,
+
         "confidence_breakdown": {
             "query_understanding": 0.90,
             "model_confidence": 0.50,
             "evidence_quality": 0.40,
         },
+
         "summary_bullets": [
             "Query routed to Visual Question Answering.",
             "One satellite image was provided.",
             "VQA specialist model is ready to be connected.",
         ],
+
         "metrics": {},
+
         "evidence": [],
+
         "output_paths": [],
+
         "trace": [
             "VQA specialist selected",
             "VQA model adapter executed",
@@ -489,20 +594,27 @@ def run_grounding(
             "The query was successfully routed to the "
             "Visual Grounding pipeline."
         ),
+
         "confidence": 0.50,
+
         "confidence_breakdown": {
             "query_understanding": 0.90,
             "model_confidence": 0.50,
             "spatial_evidence": 0.40,
         },
+
         "summary_bullets": [
             "Query routed to Visual Grounding.",
             "One satellite image was provided.",
             "Grounding model adapter is ready for integration.",
         ],
+
         "metrics": {},
+
         "evidence": [],
+
         "output_paths": [],
+
         "trace": [
             "Visual Grounding specialist selected",
             "Grounding model adapter executed",
@@ -534,20 +646,27 @@ def run_change_detection(
             "Two images were successfully received and routed "
             "to the change detection pipeline."
         ),
+
         "confidence": 0.50,
+
         "confidence_breakdown": {
             "query_understanding": 0.90,
             "model_confidence": 0.50,
             "temporal_alignment": 0.50,
         },
+
         "summary_bullets": [
             "Query routed to Bi-temporal Change Detection.",
             "Two satellite images were provided.",
             "Change detection model adapter is ready for integration.",
         ],
+
         "metrics": {},
+
         "evidence": [],
+
         "output_paths": [],
+
         "trace": [
             "Change Detection specialist selected",
             "Bi-temporal model adapter executed",
@@ -579,20 +698,27 @@ def run_optical_sar(
             "The optical and SAR inputs were successfully received "
             "and routed to the multimodal analysis pipeline."
         ),
+
         "confidence": 0.50,
+
         "confidence_breakdown": {
             "query_understanding": 0.90,
             "model_confidence": 0.50,
             "modality_alignment": 0.40,
         },
+
         "summary_bullets": [
             "Query routed to Optical-SAR analysis.",
             "Optical and SAR inputs were provided.",
             "Optical-SAR model adapter is ready for integration.",
         ],
+
         "metrics": {},
+
         "evidence": [],
+
         "output_paths": [],
+
         "trace": [
             "Optical-SAR specialist selected",
             "Optical-SAR model adapter executed",
@@ -609,20 +735,19 @@ def _build_result(
     request: AnalysisRequest,
     task_info: dict[str, Any],
     analysis_output: dict[str, Any],
-    trace: list[str],
+    trace: list[dict[str, Any]],
 ) -> AnalysisResult:
     """
     Convert specialist output into the standard SatQuery response.
     """
 
-    task_id = task_info["task"]
+    # Normalize the complete trace before sending it to the frontend.
+    trace = _normalize_trace(trace)
 
-    trace.append(
-        "Specialist analysis completed"
-    )
-
-    trace.append(
-        "Analysis result assembled"
+    _add_trace(
+        trace,
+        stage="Result Construction",
+        details="Standardized analysis result assembled.",
     )
 
     evidence_items = _normalise_evidence(
@@ -647,10 +772,10 @@ def _build_result(
         analysis_id=analysis_id,
         query=request.query,
         mode=request.mode,
-        task=task_id,
+        task=task_info["task"],
 
         detected_task=DetectedTask(
-            task_id=task_id,
+            task_id=task_info["task"],
             title=task_info["title"],
             reason=task_info["reason"],
             required_images=task_info["required_images"],
@@ -698,6 +823,77 @@ def _build_result(
 
 
 # -------------------------------------------------------------------
+# Trace normalization
+# -------------------------------------------------------------------
+
+def _normalize_trace(
+    trace: list[Any],
+    default_stage: str = "Analysis Step",
+) -> list[dict[str, Any]]:
+    """
+    Normalize trace entries into the standard SatQuery contract.
+
+    This protects the backend if a teammate's module returns
+    plain strings instead of structured dictionaries.
+    """
+
+    normalized: list[dict[str, Any]] = []
+
+    for index, item in enumerate(trace, start=1):
+
+        if isinstance(item, dict):
+
+            normalized.append(
+                {
+                    "step": item.get(
+                        "step",
+                        index,
+                    ),
+
+                    "stage": item.get(
+                        "stage",
+                        item.get(
+                            "title",
+                            default_stage,
+                        ),
+                    ),
+
+                    "details": item.get(
+                        "details",
+                        item.get(
+                            "description",
+                            "",
+                        ),
+                    ),
+
+                    "status": item.get(
+                        "status",
+                        "completed",
+                    ),
+
+                    "latency": item.get(
+                        "latency",
+                        "N/A",
+                    ),
+                }
+            )
+
+        else:
+
+            normalized.append(
+                {
+                    "step": index,
+                    "stage": default_stage,
+                    "details": str(item),
+                    "status": "completed",
+                    "latency": "N/A",
+                }
+            )
+
+    return normalized
+
+
+# -------------------------------------------------------------------
 # Evidence normalization
 # -------------------------------------------------------------------
 
@@ -713,22 +909,41 @@ def _normalise_evidence(
     for item in evidence:
 
         if isinstance(item, EvidenceItem):
+
             normalized.append(item)
             continue
 
         if isinstance(item, dict):
+
             normalized.append(
                 EvidenceItem(
                     type=str(
-                        item.get("type", "unknown")
+                        item.get(
+                            "type",
+                            "unknown",
+                        )
                     ),
+
                     label=str(
-                        item.get("label", "")
+                        item.get(
+                            "label",
+                            "",
+                        )
                     ),
-                    url=item.get("url"),
-                    path=item.get("path"),
+
+                    url=item.get(
+                        "url"
+                    ),
+
+                    path=item.get(
+                        "path"
+                    ),
+
                     description=str(
-                        item.get("description", "")
+                        item.get(
+                            "description",
+                            "",
+                        )
                     ),
                 )
             )
@@ -740,10 +955,10 @@ def _build_visual_evidence(
     evidence: list[EvidenceItem],
 ) -> dict[str, Any]:
     """
-    Create a simple frontend-compatible evidence mapping.
+    Create a frontend-compatible evidence mapping.
 
-    The frontend API client can later download these URLs and convert
-    them into PIL images.
+    The frontend API client can later download these URLs and
+    convert them into PIL images.
     """
 
     result: dict[str, Any] = {}
@@ -751,9 +966,11 @@ def _build_visual_evidence(
     for item in evidence:
 
         if item.url:
+
             result[item.type] = item.url
 
         elif item.path:
+
             result[item.type] = item.path
 
     return result
@@ -775,17 +992,26 @@ def _normalise_metrics(
     for key, value in metrics.items():
 
         if isinstance(value, Metric):
+
             normalized[key] = value
 
         elif isinstance(value, dict):
+
             normalized[key] = Metric(
-                value=value.get("value"),
+                value=value.get(
+                    "value"
+                ),
+
                 unit=str(
-                    value.get("unit", "")
+                    value.get(
+                        "unit",
+                        "",
+                    )
                 ),
             )
 
         else:
+
             normalized[key] = Metric(
                 value=value,
                 unit="",
@@ -802,7 +1028,7 @@ def _validate_request_inputs(
     request: AnalysisRequest,
 ) -> None:
     """
-    Additional service-level validation.
+    Service-level validation.
 
     FastAPI performs API-level validation and validator.py handles
     request validation. This function protects the service itself
@@ -810,16 +1036,19 @@ def _validate_request_inputs(
     """
 
     if not request.query.strip():
+
         raise ValueError(
             "Query cannot be empty."
         )
 
     if not request.image_paths:
+
         raise ValueError(
             "At least one image is required."
         )
 
     if len(request.image_paths) > 2:
+
         raise ValueError(
             "A maximum of two images is supported."
         )
@@ -827,6 +1056,7 @@ def _validate_request_inputs(
     for image_path in request.image_paths:
 
         if not image_path.strip():
+
             raise ValueError(
                 "Image path cannot be empty."
             )
@@ -834,6 +1064,7 @@ def _validate_request_inputs(
         path = Path(image_path)
 
         if not path.exists():
+
             raise ValueError(
                 f"Image file does not exist: {image_path}"
             )
