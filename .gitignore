@@ -11,3 +11,8 @@ ChangeFormer/samples_DSIFN/
 ChangeFormer/samples_LEVIR/
 ChangeFormer_source.zip
 outputs/
+ChangeFormer/checkpoints/
+ChangeFormer/samples_DSIFN/
+ChangeFormer/samples_LEVIR/
+ChangeFormer_source.zip
+outputs/
