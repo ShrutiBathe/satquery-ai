@@ -146,7 +146,7 @@ def render_processing_pipeline() -> None:
     st.session_state["current_analysis_id"] = result_payload.get("analysis_id")
     st.session_state["detected_task"] = detected_task
     st.session_state["analysis_result"] = result_payload
-    st.session_state["confidence"] = result_payload.get("confidence", 0.90)
+    st.session_state["confidence"] = result_payload.get("confidence")
     st.session_state["confidence_breakdown"] = result_payload.get("confidence_breakdown", {})
     st.session_state["visual_evidence"] = result_payload.get("visual_evidence", {})
     st.session_state["analysis_trace"] = result_payload.get("analysis_trace", [])
@@ -158,9 +158,9 @@ def render_processing_pipeline() -> None:
         "query": query,
         "mode": mode,
         "task_name": detected_task.get("title", "Geospatial Analysis"),
-        "task_id": detected_task.get("id", "general"),
+        "task_id": detected_task.get("task_id", "general"),
         "image_count": sum(image is not None for image in (img_a, img_b, img_c)),
-        "confidence": result_payload.get("confidence", 0.90),
+        "confidence": result_payload.get("confidence"),
         "status": "Completed"
     }
     st.session_state["history"].insert(0, history_record)

@@ -51,7 +51,8 @@ def render_saved_insights_page() -> None:
     # Render Grid of Saved Insights
     for idx, item in enumerate(saved_items):
         ins_id = item.get("id", f"INS-{idx}")
-        conf_pct = int(item.get("confidence", 0.90) * 100)
+        confidence = item.get("confidence")
+        conf_pct = f"{int(confidence * 100)}%" if confidence is not None else "N/A"
         thumb = item.get("thumbnail")
 
         with st.container():

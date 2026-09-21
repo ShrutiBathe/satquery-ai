@@ -135,7 +135,7 @@ def save_current_insight() -> bool:
         "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
         "query": st.session_state.get("query_text", ""),
         "task_name": st.session_state.get("detected_task", {}).get("title", "Geospatial Analysis"),
-        "task_id": st.session_state.get("detected_task", {}).get("id", "general"),
+        "task_id": st.session_state.get("detected_task", {}).get("task_id", "general"),
         "answer": result.get("answer", ""),
         "confidence": st.session_state.get("confidence", 0.90),
         "image_count": sum(

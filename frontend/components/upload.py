@@ -565,6 +565,10 @@ def _render_optical_sar_uploader() -> None:
         img_sar = st.session_state.get("uploaded_image_b")
         name_sar = st.session_state.get("image_b_name", "SAR_VV.tif")
 
+        # Convert to RGB if needed for display
+        if img_sar is not None and img_sar.mode != "RGB":
+            img_sar = img_sar.convert("RGB")
+
         if img_sar is None:
             f_sar = st.file_uploader("Upload SAR VV (GeoTIFF / PNG / JPG)", type=["tif", "tiff", "png", "jpg", "jpeg"], key="up_sar_vv")
             if f_sar is not None:
@@ -587,7 +591,8 @@ def _render_optical_sar_uploader() -> None:
     </div>
 </div>
 """)
-            st.image(img_sar, caption=f"SAR VV Backscatter: {name_sar}", use_container_width=True)
+            img_sar_rgb = img_sar.convert("RGB") if img_sar.mode != "RGB" else img_sar
+            st.image(img_sar_rgb, caption=f"SAR VV Backscatter: {name_sar}", use_container_width=True, output_format="PNG")
             if st.button("↺ Replace SAR Scene", key="rem_sar", use_container_width=True):
                 st.session_state["uploaded_image_b"] = None
                 st.session_state["uploaded_image_b_bytes"] = None
@@ -604,7 +609,8 @@ def _render_optical_sar_uploader() -> None:
                 st.session_state["image_c_name"] = f_vh.name
                 st.rerun()
         else:
-            st.image(img_vh, caption=f"SAR VH Backscatter: {name_vh}", use_container_width=True)
+            img_vh_rgb = img_vh.convert("RGB") if img_vh.mode != "RGB" else img_vh
+            st.image(img_vh_rgb, caption=f"SAR VH Backscatter: {name_vh}", use_container_width=True, output_format="PNG")
             if st.button("↺ Replace SAR VH", key="rem_sar_vh", use_container_width=True):
                 st.session_state["uploaded_image_c"] = None
                 st.session_state["uploaded_image_c_bytes"] = None

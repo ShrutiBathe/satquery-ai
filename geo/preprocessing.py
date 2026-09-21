@@ -9,9 +9,19 @@ from .validation import validate_images
 from .bands import select_rgb_bands
 OUTPUT_DIR = Path("outputs/processed")
 
-# Target size for model-ready images.
-# Set to None to keep the original size.
-TARGET_SIZE = (100, 150)
+# Preserve uploaded resolution for evidence and model preprocessing. VQA and
+# Grounding perform their own model-side preprocessing; resizing here makes
+# the frontend evidence visibly blurry.
+import os
+
+# Optional down‑scale dimension for large images.
+# If GROUNDING_MAX_DIM is set, images will be resized to a square of that size.
+_env_max = os.getenv('GROUNDING_MAX_DIM')
+if _env_max and _env_max.isdigit():
+    max_dim = int(_env_max)
+    TARGET_SIZE = (max_dim, max_dim)
+else:
+    TARGET_SIZE = None
 
 
 def _read_image(image_path: str):
@@ -411,19 +421,35 @@ def preprocess_images(
             before_path = Path(image_paths[0])
             after_path = Path(image_paths[1])
 
-            # Change detection requires GeoTIFF images
-            if (
-                before_path.suffix.lower() not in {".tif", ".tiff"}
-                or after_path.suffix.lower() not in {".tif", ".tiff"}
-            ):
+            before_is_geotiff = before_path.suffix.lower() in {".tif", ".tiff"}
+            after_is_geotiff = after_path.suffix.lower() in {".tif", ".tiff"}
+
+            # GeoTIFF pairs are aligned on their spatial grid. Ordinary
+            # image pairs have no CRS/grid to align, so require matching
+            # dimensions and let ChangeFormer perform its model resize.
+            if not before_is_geotiff or not after_is_geotiff:
+                # Non‑GeoTIFF images: ensure they have matching dimensions.
+                with Image.open(before_path) as before_image, Image.open(after_path) as after_image:
+                    before_size = before_image.size  # (width, height)
+                    if after_image.size != before_size:
+                        # Resize after‑image to match before‑image dimensions.
+                        after_image = after_image.resize(before_size, Image.Resampling.BILINEAR)
+                    # Save the (possibly resized) images to the output directory.
+                    output_before = output_root / "before.png"
+                    output_after = output_root / "after.png"
+                    before_image.save(output_before)
+                    after_image.save(output_after)
+
                 return {
-                    "success": False,
-                    "image_paths": [],
-                    "metadata": {},
-                    "error": (
-                        "Change detection requires two "
-                        "GeoTIFF/TIFF images."
-                    )
+                    "success": True,
+                    "image_paths": [str(output_before), str(output_after)],
+                    "metadata": {
+                        "aligned": False,
+                        "geospatial_alignment": "not applicable",
+                        "width": before_size[0],
+                        "height": before_size[1],
+                    },
+                    "error": None,
                 }
 
             # Output files
@@ -470,6 +496,14 @@ def preprocess_images(
         # =====================================================
                 # OPTICAL-SAR
         if task == "optical_sar":
+            # Ensure three modality images are provided: optical, SAR VV, SAR VH
+            if len(image_paths) != 3:
+                return {
+                    "success": False,
+                    "image_paths": [],
+                    "metadata": {},
+                    "error": "Optical-SAR task requires exactly three image paths (optical, SAR VV, SAR VH).",
+                }
             return preprocess_optical_sar(*image_paths)
         data, metadata = _read_image(image_paths[0])
 

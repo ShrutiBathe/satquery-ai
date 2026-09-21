@@ -11,7 +11,13 @@ from typing import Dict, Any
 def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str, Any], metadata: Dict[str, Any] = None) -> str:
     """Generate comprehensive analysis report in Markdown."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    confidence_pct = int(result.get("confidence", 0.90) * 100)
+    confidence = result.get("confidence")
+    confidence_pct = int(confidence * 100) if confidence is not None else None
+    confidence_label = (
+        f"{confidence_pct}% ( {'High' if confidence_pct >= 85 else 'Moderate'} Confidence)"
+        if confidence_pct is not None
+        else "N/A (Model did not provide a calibrated confidence score)"
+    )
     
     report = f"""# SatQuery AI — Geospatial Analysis Intelligence Report
 **Platform:** Multi-Sensor Earth Observation Intelligence  
@@ -23,7 +29,7 @@ def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str,
 ## 1. Executive Summary
 - **Natural Language Query:** *"{query}"*
 - **Autonomous Routed Workflow:** **{task.get("title", "Multimodal Remote Sensing")}**
-- **Decision Confidence:** **{confidence_pct}%** ({'High' if confidence_pct >= 85 else 'Moderate'} Confidence)
+- **Decision Confidence:** **{confidence_label}**
 - **Primary AI Insight:**  
   > {result.get("answer", "No answer generated.")}
 

@@ -2,6 +2,7 @@
 import numpy as np
 import rasterio
 from rasterio.transform import from_origin
+from PIL import Image
 
 from geo.preprocessing import preprocess_images, preprocess_optical_sar
 from geo.validation import validate_images
@@ -82,6 +83,23 @@ def test_change_detection_preprocessing(tmp_path):
     )
     assert result["success"] is True
     assert result["metadata"]["aligned"] is True
+    assert len(result["image_paths"]) == 2
+
+
+def test_change_detection_accepts_matching_standard_images(tmp_path):
+    before = tmp_path / "before.png"
+    after = tmp_path / "after.jpg"
+    Image.new("RGB", (64, 48), (20, 20, 20)).save(before)
+    Image.new("RGB", (64, 48), (40, 40, 40)).save(after)
+
+    result = preprocess_images(
+        [str(before), str(after)],
+        "change_detection",
+        output_dir=tmp_path / "processed",
+    )
+
+    assert result["success"] is True
+    assert result["metadata"]["aligned"] is False
     assert len(result["image_paths"]) == 2
 
 

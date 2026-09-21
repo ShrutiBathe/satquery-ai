@@ -1,6 +1,8 @@
 import unittest
 
 from backend.errors import ValidationError
+from backend.schemas import AnalysisRequest
+from backend.service import analyze
 from backend.service import understand_query
 
 
@@ -31,3 +33,13 @@ class BackendRoutingTests(unittest.TestCase):
     def test_optical_sar_requires_three_inputs(self) -> None:
         with self.assertRaisesRegex(ValidationError, "requires 3 image"):
             understand_query("Compare optical and SAR imagery.", image_count=2)
+
+    def test_compare_mode_selects_change_detection_for_ambiguous_query(self) -> None:
+        request = AnalysisRequest(
+            query="What is different in these images?",
+            image_paths=["before.tif", "after.tif"],
+            mode="compare_images",
+        )
+        with self.assertRaises(ValidationError) as context:
+            analyze(request)
+        self.assertNotIn("Vqa requires", str(context.exception))

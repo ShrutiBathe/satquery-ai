@@ -1,4 +1,5 @@
 from pathlib import Path
+import re
 from typing import Any, Dict, List, Tuple
 
 import torch
@@ -17,16 +18,31 @@ MODEL_ID = "IDEA-Research/grounding-dino-tiny"
 
 DEVICE = "cuda" if torch.cuda.is_available() else "cpu"
 
+# Configurable tiling grid via environment variables (defaults to 3x3)
+import os
+import threading
+import time
+
+# Tiling configuration.
+# The grid size and overlap are now configurable via environment variables (GRID_ROWS, GRID_COLS, TILE_OVERLAP).
+# These defaults remain for backward compatibility.
+GRID_ROWS = int(os.getenv("GROUNDING_GRID_ROWS", "3"))
+GRID_COLS = int(os.getenv("GROUNDING_GRID_COLS", "3"))
+TILE_OVERLAP = 0.20
+
+# Maximum allowed tiles to prevent runaway inference
+MAX_TILES = int(os.getenv("GROUNDING_MAX_TILES", "9"))
+
+# Thread‑safe singleton initialization lock for the model
+_model_lock = threading.Lock()
+
 # Grounding DINO candidate thresholds.
 # We intentionally do not use 0.40 here because it removed
 # almost all useful small-object detections in the satellite image.
 BOX_THRESHOLD = 0.25
 TEXT_THRESHOLD = 0.20
 
-# Tiling configuration.
-GRID_ROWS = 3
-GRID_COLS = 3
-TILE_OVERLAP = 0.20
+# Tiling configuration (now derived from environment variables).
 
 # Final filtering.
 MIN_CONFIDENCE = 0.25
@@ -65,12 +81,34 @@ def normalize_query(query: str) -> str:
     if not query:
         raise ValueError("Grounding query cannot be empty.")
 
-    # Remove an existing final period so we can add exactly one.
+    # Convert location questions into the object phrase Grounding DINO
+    # expects, e.g. "Where are the buildings in this image?" -> "buildings".
+    query = re.sub(r"^(where|find|locate|highlight|show|identify)\b", "", query)
+    query = re.sub(r"\b(is|are|all|the|this|that|located|visible|present)\b", " ", query)
+    query = re.sub(
+        r"\b(in|on|within|from)\s+(this|the|given)\s+(image|scene|picture)\b",
+        " ",
+        query,
+    )
+    query = re.sub(r"\b(image|scene|picture)\b", " ", query)
+    query = query.replace("?", " ")
+    query = re.sub(r"\s+", " ", query).strip(" .,")
+    query = re.sub(r"\s+(in|on|within|from)$", "", query)
+
+    if not query:
+        raise ValueError("Grounding query did not contain an object or region label.")
+
+    # Multiple alternatives are presented as separate Grounding DINO labels.
+    query = re.sub(r"\s+or\s+", ". ", query)
     query = query.rstrip(".")
 
     # Grounding DINO generally works better with natural-language
     # phrases than isolated class names.
-    return f"a {query}."
+    return ". ".join(
+        label.strip()
+        for label in query.split(".")
+        if label.strip()
+    ) + "."
 
 
 # ============================================================
@@ -178,10 +216,10 @@ _model = None
 
 def get_grounding_model() -> GroundingModel:
     global _model
-
-    if _model is None:
-        _model = GroundingModel()
-
+    # Ensure only one thread creates the model instance
+    with _model_lock:
+        if _model is None:
+            _model = GroundingModel()
     return _model
 
 
@@ -741,13 +779,11 @@ def run_grounding(
         # Visualization.
         # ----------------------------------------------------
 
-        safe_query = (
-            query.lower()
-            .strip()
-            .replace(" ", "_")
-            .replace("/", "_")
-            .replace("\\", "_")
-        )
+        safe_query = re.sub(
+            r"[^a-z0-9_-]+",
+            "_",
+            query.lower().strip(),
+        ).strip("._-") or "grounding_query"
 
         output_path = (
             Path("outputs")

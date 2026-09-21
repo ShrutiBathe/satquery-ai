@@ -9,11 +9,21 @@ from PIL import Image
 from typing import Dict, Any
 
 import config.settings as cfg
-from utils.image_utils import image_to_bytes
+from utils.image_utils import image_to_bytes, normalize_float_image
 
 
 def render_visual_result_viewer(evidence: Dict[str, Any], task_id: str) -> None:
     """Render interactive tabs for visual evidence according to detected workflow."""
+    
+    # Pre-process evidence dictionary: convert string paths to PIL Images
+    for key, val in list(evidence.items()):
+        if isinstance(val, str):
+            try:
+                img = Image.open(val)
+                evidence[key] = normalize_float_image(img)
+            except Exception:
+                pass
+
     render_html("""
 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.6rem;">
     <h3 style="font-size: 1.15rem; margin: 0; font-weight: 700; color: #F8FAFC;">
@@ -73,29 +83,25 @@ def _render_change_detection_tabs(evidence: Dict[str, Any]) -> None:
 def _render_grounding_tabs(evidence: Dict[str, Any]) -> None:
     """Tabs for Visual Grounding & Localization."""
     img_a = evidence.get("image_a")
-    bboxes_img = evidence.get("annotated_bboxes")
+    bboxes_img = evidence.get("annotated_bboxes") or evidence.get("grounding_visualization")
     seg_img = evidence.get("seg_overlay")
 
-    tab1, tab2, tab3 = st.tabs([
-        "🛰️ Original Scene",
-        "🎯 Grounded Bounding Boxes",
-        "📐 Segmentation Contours"
-    ])
+    tabs_to_render = []
+    if img_a: tabs_to_render.append(("🛰️ Original Scene", img_a, "Raw Satellite Scene", "SatQuery_Scene_Raw.png"))
+    if bboxes_img: tabs_to_render.append(("🎯 Grounded Bounding Boxes", bboxes_img, "Spatial Bounding Boxes with Class Labels", "SatQuery_Grounded_BBoxes.png"))
+    if seg_img: tabs_to_render.append(("📐 Segmentation Contours", seg_img, "Sub-pixel Segmentation Polygons", "SatQuery_Segmentation_Mask.png"))
 
-    with tab1:
-        if img_a:
-            st.image(img_a, caption="Raw Satellite Scene", use_container_width=True)
-            _render_download_btn(img_a, "SatQuery_Scene_Raw.png")
+    if not tabs_to_render:
+        st.info("No visual evidence provided for Visual Grounding.")
+        return
 
-    with tab2:
-        if bboxes_img:
-            st.image(bboxes_img, caption="Spatial Bounding Boxes with Class Labels and Confidence", use_container_width=True)
-            _render_download_btn(bboxes_img, "SatQuery_Grounded_BBoxes.png")
+    created_tabs = st.tabs([t[0] for t in tabs_to_render])
 
-    with tab3:
-        if seg_img:
-            st.image(seg_img, caption="Sub-pixel Segmentation Polygons", use_container_width=True)
-            _render_download_btn(seg_img, "SatQuery_Segmentation_Mask.png")
+    for idx, tab in enumerate(created_tabs):
+        with tab:
+            _, img, caption, filename = tabs_to_render[idx]
+            st.image(img, caption=caption, use_container_width=True)
+            _render_download_btn(img, filename)
 
 
 def _render_optical_sar_tabs(evidence: Dict[str, Any]) -> None:
@@ -103,27 +109,23 @@ def _render_optical_sar_tabs(evidence: Dict[str, Any]) -> None:
     img_opt = evidence.get("image_a")
     img_sar = evidence.get("image_b")
     fused = evidence.get("fused_overlay")
-
-    tab1, tab2, tab3 = st.tabs([
-        "☀️ Optical (Multispectral)",
-        "📡 SAR Radar (C-Band Backscatter)",
-        "⚡ Multimodal Fused Inundation"
-    ])
-
-    with tab1:
-        if img_opt:
-            st.image(img_opt, caption="Optical RGB (Cloud & Haze Obscured)", use_container_width=True)
-            _render_download_btn(img_opt, "SatQuery_Optical_RGB.png")
-
-    with tab2:
-        if img_sar:
-            st.image(img_sar, caption="Sentinel-1 SAR Radar (Cloud Penetrating Microwave Backscatter)", use_container_width=True)
-            _render_download_btn(img_sar, "SatQuery_SAR_Backscatter.png")
-
-    with tab3:
-        if fused:
-            st.image(fused, caption="Fused Multimodal Surface Water & Flood Extent Mask", use_container_width=True)
-            _render_download_btn(fused, "SatQuery_Fused_SAR_Optical.png")
+    
+    tabs_to_render = []
+    if img_opt: tabs_to_render.append(("☀️ Optical (Multispectral)", img_opt, "Optical RGB (Cloud & Haze Obscured)", "SatQuery_Optical_RGB.png"))
+    if img_sar: tabs_to_render.append(("📡 SAR Radar (C-Band Backscatter)", img_sar, "Sentinel-1 SAR Radar", "SatQuery_SAR_Backscatter.png"))
+    if fused: tabs_to_render.append(("⚡ Multimodal Fused Inundation", fused, "Fused Multimodal Mask", "SatQuery_Fused_SAR_Optical.png"))
+    
+    if not tabs_to_render:
+        st.info("No visual evidence provided for Optical SAR.")
+        return
+        
+    created_tabs = st.tabs([t[0] for t in tabs_to_render])
+    
+    for idx, tab in enumerate(created_tabs):
+        with tab:
+            _, img, caption, filename = tabs_to_render[idx]
+            st.image(img, caption=caption, use_container_width=True)
+            _render_download_btn(img, filename)
 
 
 def _render_vqa_tabs(evidence: Dict[str, Any]) -> None:

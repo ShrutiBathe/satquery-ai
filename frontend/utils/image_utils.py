@@ -9,6 +9,30 @@ from PIL import Image, ImageDraw, ImageFont, ImageColor
 import io
 import random
 
+def normalize_float_image(img: Image.Image) -> Image.Image:
+    """Safely convert mode 'F' (float32) or 'I' SAR images to displayable RGB."""
+    if img.mode not in ("F", "I", "I;16"):
+        return img
+        
+    arr = np.array(img)
+    # Ignore invalid/nodata values (-32768)
+    valid_mask = arr > -32000
+    if not np.any(valid_mask):
+        return Image.new("RGB", img.size, (0, 0, 0))
+        
+    # Scale based on 2nd and 98th percentile to drop extreme radar scatter outliers
+    p2 = np.percentile(arr[valid_mask], 2)
+    p98 = np.percentile(arr[valid_mask], 98)
+    
+    if p98 == p2:
+        norm = np.zeros_like(arr, dtype=np.uint8)
+    else:
+        norm = np.clip((arr - p2) / (p98 - p2), 0, 1)
+        norm = (norm * 255).astype(np.uint8)
+        
+    norm[~valid_mask] = 0
+    return Image.fromarray(norm).convert("RGB")
+
 
 def create_annotated_bboxes(
     image: Image.Image,

@@ -173,12 +173,6 @@ class ChangeFormerInference:
             Tensor with shape [1, 3, H, W]
         """
 
-        image = cv2.resize(
-            image,
-            (self.image_size, self.image_size),
-            interpolation=cv2.INTER_LINEAR,
-        )
-
         image = image.astype(np.float32)
 
         # Convert [0,255] -> [0,1]
@@ -186,12 +180,12 @@ class ChangeFormerInference:
 
         # ChangeFormer training pipeline uses normalized RGB input.
         mean = np.array(
-            [0.485, 0.456, 0.406],
+            [0.5, 0.5, 0.5],
             dtype=np.float32,
         )
 
         std = np.array(
-            [0.229, 0.224, 0.225],
+            [0.5, 0.5, 0.5],
             dtype=np.float32,
         )
 
@@ -217,29 +211,12 @@ class ChangeFormerInference:
     @torch.no_grad()
     def predict(
         self,
-        before_path: str | Path,
-        after_path: str | Path,
+        before_image: np.ndarray,
+        after_image: np.ndarray,
     ) -> np.ndarray:
         """
-        Run ChangeFormer inference.
-
-        Args:
-            before_path:
-                Earlier image.
-
-            after_path:
-                Later image.
-
-        Returns:
-            Binary change mask with shape [256, 256].
-
-            Values:
-                0 = unchanged
-                1 = changed
+        Run ChangeFormer inference on pre-loaded images.
         """
-
-        before_image = self._load_image(before_path)
-        after_image = self._load_image(after_path)
 
         before_tensor = self._preprocess(before_image)
         after_tensor = self._preprocess(after_image)
@@ -293,19 +270,24 @@ class ChangeFormerInference:
         """
 
         before_image = self._load_image(before_path)
+        after_image = self._load_image(after_path)
 
         height, width = before_image.shape[:2]
+        
+        # ChangeFormer requires input dimensions to be multiples of 32
+        new_height = ((height + 31) // 32) * 32
+        new_width = ((width + 31) // 32) * 32
 
-        mask = self.predict(
-            before_path,
-            after_path,
-        )
+        # Resize the image to the padded multiple of 32
+        # (This retains the original resolution without drastic downscaling to 256)
+        before_padded = cv2.resize(before_image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
+        after_padded = cv2.resize(after_image, (new_width, new_height), interpolation=cv2.INTER_LINEAR)
 
-        mask = cv2.resize(
-            mask,
-            (width, height),
-            interpolation=cv2.INTER_NEAREST,
-        )
+        # Run inference
+        mask_padded = self.predict(before_padded, after_padded)
+
+        # Crop/resize the mask back to the exact original shape
+        mask = cv2.resize(mask_padded, (width, height), interpolation=cv2.INTER_NEAREST)
 
         mask = (mask > 0).astype(np.uint8)
 

@@ -260,7 +260,8 @@ class SatQueryAPIClient:
             return {
                 "status": "error",
                 "error": (
-                    "SatQuery backend request timed out."
+                    "SatQuery backend request exceeded the 5-minute inference timeout. "
+                    "The model may still be loading or running on CPU; retry after the first model warm-up."
                 ),
             }
 

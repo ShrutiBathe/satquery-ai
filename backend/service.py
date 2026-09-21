@@ -176,7 +176,15 @@ def run_grounding(
         f"Grounding DINO returned {len(detections)} detection(s).",
         "Bounding boxes are shown in the generated visualization.",
     ]
-    result["visual_evidence"] = {"image_a": image_path}
+    evidence_path = (
+        result.get("output_paths", [None])[0]
+        if result.get("output_paths")
+        else None
+    )
+    result["visual_evidence"] = {
+        "image_a": image_path,
+        "annotated_bboxes": evidence_path,
+    }
     result["trace"] = [{"stage": "Grounding Specialist", "details": "Grounding DINO inference completed."}]
     return result
 
@@ -195,21 +203,53 @@ def run_change_detection(
         run_change_detection as model_run_change_detection,
     )
     result = model_run_change_detection(image1_path, image2_path)
+
+    # If the specialist failed, surface the real error so the user sees
+    # an actionable message instead of "Change detected: False; 0.00%".
+    if not result.get("success", False):
+        error_msg = result.get("error") or "ChangeFormer inference failed (unknown error)."
+        raise ModelError(f"Change detection failed: {error_msg}")
+
+    change_detected = result.get("change_detected", False)
+    change_pct = result.get("change_percentage", 0.0)
+    region_count = len(result.get("detections", []))
+
     result["answer"] = (
-        f"Change detected: {result.get('change_detected', False)}; "
-        f"changed area: {result.get('change_percentage', 0.0):.2f}%."
+        f"{'Significant land-cover change detected' if change_detected else 'No significant change detected'} "
+        f"between the two images. "
+        f"{region_count} changed region(s) identified, covering {change_pct:.2f}% of the scene."
     )
     result["visual_evidence"] = {
         "image_a": image1_path,
         "image_b": image2_path,
-        "change_mask": result.get("change_mask"),
+        "heatmap": result.get("change_mask"),
         "overlay": result.get("visualization"),
+        "change_mask": result.get("change_mask"),
     }
+    # Evidence list for generic UI sections (paths to generated artefacts)
+    result["evidence"] = [
+        p for p in [result.get("change_mask"), result.get("visualization")] if p
+    ]
+    # Summary bullets presented in the answer panel
+    result["summary_bullets"] = [
+        f"Change detected: {'Yes' if change_detected else 'No'}.",
+        f"Detected {region_count} change region(s) in the scene.",
+        f"Total changed area: {change_pct:.2f}% of the image.",
+        f"Binary change mask and overlay saved for evidence review.",
+    ]
+    # Statistics
+    stats = result.get("statistics", {})
+    stats.update({
+        "change_percentage": change_pct,
+        "region_count": region_count,
+        "change_detected": change_detected,
+    })
+    result["statistics"] = stats
     result["output_paths"] = [
         path for path in [result.get("change_mask"), result.get("visualization")]
         if path
     ]
-    result["trace"] = [{"stage": "Change Detection Specialist", "details": "ChangeFormer inference completed."}]
+    result["trace"] = [{"stage": "Change Detection Specialist", "details": "ChangeFormer inference completed successfully."}]
     return result
 
 
@@ -234,7 +274,11 @@ def run_optical_sar(
             f"agreement (cosine similarity {comparison.get('cosine_similarity', 0.0):.3f})."
         )
     result["success"] = result.get("status") == "success"
-    result["visual_evidence"] = {"optical": optical_path, "sar_vv": vv_path, "sar_vh": vh_path}
+    result["visual_evidence"] = {
+        "image_a": optical_path, 
+        "image_b": vv_path, 
+        "sar_vh": vh_path
+    }
     result["trace"] = [{"stage": "Optical-SAR Specialist", "details": "Optical-SAR model inference completed."}]
     return result
 
@@ -433,6 +477,28 @@ def analyze(request: AnalysisRequest) -> AnalysisResult:
     image_count=len(request.image_paths),
     metadata=request.metadata_a
 )
+
+    # Explicit UI modes are user-selected workflow contracts. Auto Detect
+    # remains fully agent-routed, while compare/optical modes must not fall
+    # back to single-image VQA when a query uses ambiguous wording.
+    if request.mode == "compare_images":
+        routing = {
+            "task": "change_detection",
+            "required_images": 2,
+            "reason": "Compare-images mode explicitly selects change detection.",
+        }
+        if len(request.image_paths) != 2:
+            raise ValidationError("Compare-images mode requires exactly two images.")
+    elif request.mode == "optical_sar":
+        routing = {
+            "task": "optical_sar",
+            "required_images": 3,
+            "reason": "Optical-SAR mode explicitly selects optical plus SAR analysis.",
+        }
+        if len(request.image_paths) != 3:
+            raise ValidationError(
+                "Optical-SAR mode requires exactly three images: optical, SAR VV, and SAR VH."
+            )
 
     task = routing["task"]
 
