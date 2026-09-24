@@ -222,7 +222,7 @@ def _render_results_workspace() -> None:
     col_visual, col_answer = st.columns([1.35, 1])
 
     with col_visual:
-        render_visual_result_viewer(evidence, detected_task.get("id", "general"))
+        render_visual_result_viewer(evidence, detected_task.get("task_id", "general"))
         render_evidence_card(evidence, result.get("metrics", {}))
 
     with col_answer:

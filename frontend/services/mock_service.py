@@ -48,7 +48,8 @@ def execute_mock_analysis(
     query: str,
     mode: str = cfg.MODE_AUTO,
     metadata_a: Optional[Dict[str, Any]] = None,
-    metadata_b: Optional[Dict[str, Any]] = None
+    metadata_b: Optional[Dict[str, Any]] = None,
+    image_c: Optional[Image.Image] = None,
 ) -> Dict[str, Any]:
     """
     Execute simulated analysis pipeline matching backend JSON contract.
@@ -210,7 +211,7 @@ def execute_mock_analysis(
 def generate_mock_follow_up(original_result: Dict[str, Any], user_query: str) -> str:
     """Generate simulated context-aware follow up response."""
     q = user_query.lower()
-    task_id = original_result.get("detected_task", {}).get("id", "")
+    task_id = original_result.get("detected_task", {}).get("task_id", "")
 
     if "south" in q or "southern" in q:
         return (

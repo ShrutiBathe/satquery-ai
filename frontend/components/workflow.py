@@ -32,6 +32,10 @@ def render_processing_pipeline() -> None:
     mode = st.session_state.get("analysis_mode", cfg.MODE_AUTO)
     img_a = st.session_state.get("uploaded_image_a")
     img_b = st.session_state.get("uploaded_image_b")
+    img_c = st.session_state.get("uploaded_image_c")
+    raw_a = st.session_state.get("uploaded_image_a_bytes")
+    raw_b = st.session_state.get("uploaded_image_b_bytes")
+    raw_c = st.session_state.get("uploaded_image_c_bytes")
     meta_a = st.session_state.get("image_metadata_a")
     meta_b = st.session_state.get("image_metadata_b")
     demo_mode = st.session_state.get("demo_mode", True)
@@ -46,6 +50,10 @@ def render_processing_pipeline() -> None:
         result_payload = client.analyze(
             image_a=img_a,
             image_b=img_b,
+            image_c=img_c,
+            raw_image_a=raw_a,
+            raw_image_b=raw_b,
+            raw_image_c=raw_c,
             query=query,
             mode=mode,
             metadata_a=meta_a,
@@ -138,7 +146,7 @@ def render_processing_pipeline() -> None:
     st.session_state["current_analysis_id"] = result_payload.get("analysis_id")
     st.session_state["detected_task"] = detected_task
     st.session_state["analysis_result"] = result_payload
-    st.session_state["confidence"] = result_payload.get("confidence", 0.90)
+    st.session_state["confidence"] = result_payload.get("confidence")
     st.session_state["confidence_breakdown"] = result_payload.get("confidence_breakdown", {})
     st.session_state["visual_evidence"] = result_payload.get("visual_evidence", {})
     st.session_state["analysis_trace"] = result_payload.get("analysis_trace", [])
@@ -150,9 +158,9 @@ def render_processing_pipeline() -> None:
         "query": query,
         "mode": mode,
         "task_name": detected_task.get("title", "Geospatial Analysis"),
-        "task_id": detected_task.get("id", "general"),
-        "image_count": 2 if img_b is not None else 1,
-        "confidence": result_payload.get("confidence", 0.90),
+        "task_id": detected_task.get("task_id", "general"),
+        "image_count": sum(image is not None for image in (img_a, img_b, img_c)),
+        "confidence": result_payload.get("confidence"),
         "status": "Completed"
     }
     st.session_state["history"].insert(0, history_record)

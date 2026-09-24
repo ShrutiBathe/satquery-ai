@@ -8,9 +8,9 @@ import streamlit as st
 from typing import List, Dict, Any
 
 
-def render_analysis_trace(trace_list: List[Dict[str, Any]], detected_task: Dict[str, Any], confidence: float) -> None:
+def render_analysis_trace(trace_list: List[Dict[str, Any]], detected_task: Dict[str, Any], confidence: float | None) -> None:
     """Render the expandable analysis trace accordion."""
-    conf_pct = int(confidence * 100)
+    conf_display = f"{int(confidence * 100)}%" if confidence is not None else "N/A"
 
     with st.expander("⚡ How did SatQuery reach this answer? (Agent Execution Trace)", expanded=False):
         render_html(f"""
@@ -27,7 +27,7 @@ def render_analysis_trace(trace_list: List[Dict[str, Any]], detected_task: Dict[
             {"step": 3, "stage": "Agentic Routing", "details": f"Autonomous routing decision: Dispatched to '{detected_task.get('model_pipeline', 'Specialist')}'.", "latency": "180 ms", "agent_node": "AgentDispatcher"},
             {"step": 4, "stage": "Specialist Inference", "details": f"Forward pass executed on {detected_task.get('input_modality', 'Multispectral')} tensor.", "latency": "1.24 s", "agent_node": "SpecialistWorkerPool"},
             {"step": 5, "stage": "Evidence Generation", "details": "Spatial grounding masks and bounding coordinates generated with sub-pixel alignment.", "latency": "310 ms", "agent_node": "EvidenceSynthesis"},
-            {"step": 6, "stage": "Confidence Scoring", "details": f"Tri-factor ensemble confidence calculated at {conf_pct}%.", "latency": "95 ms", "agent_node": "ConfidenceEvaluator"}
+            {"step": 6, "stage": "Confidence Scoring", "details": f"Model confidence: {conf_display}.", "latency": "95 ms", "agent_node": "ConfidenceEvaluator"}
         ]
 
         active_traces = trace_list if trace_list else default_traces

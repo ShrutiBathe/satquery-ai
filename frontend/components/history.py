@@ -77,7 +77,8 @@ def render_history_page() -> None:
 
     for idx, record in enumerate(filtered):
         rec_id = record.get("id", f"ANL-{idx}")
-        conf_pct = int(record.get("confidence", 0.90) * 100)
+        confidence = record.get("confidence")
+        conf_pct = f"{int(confidence * 100)}%" if confidence is not None else "N/A"
 
         with st.container():
             render_html(f"""

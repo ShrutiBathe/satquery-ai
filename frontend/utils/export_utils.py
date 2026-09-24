@@ -11,7 +11,13 @@ from typing import Dict, Any
 def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str, Any], metadata: Dict[str, Any] = None) -> str:
     """Generate comprehensive analysis report in Markdown."""
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S UTC")
-    confidence_pct = int(result.get("confidence", 0.90) * 100)
+    confidence = result.get("confidence")
+    confidence_pct = int(confidence * 100) if confidence is not None else None
+    confidence_label = (
+        f"{confidence_pct}% ( {'High' if confidence_pct >= 85 else 'Moderate'} Confidence)"
+        if confidence_pct is not None
+        else "N/A (Model did not provide a calibrated confidence score)"
+    )
     
     report = f"""# SatQuery AI — Geospatial Analysis Intelligence Report
 **Platform:** Multi-Sensor Earth Observation Intelligence  
@@ -23,7 +29,7 @@ def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str,
 ## 1. Executive Summary
 - **Natural Language Query:** *"{query}"*
 - **Autonomous Routed Workflow:** **{task.get("title", "Multimodal Remote Sensing")}**
-- **Decision Confidence:** **{confidence_pct}%** ({'High' if confidence_pct >= 85 else 'Moderate'} Confidence)
+- **Decision Confidence:** **{confidence_label}**
 - **Primary AI Insight:**  
   > {result.get("answer", "No answer generated.")}
 
@@ -54,13 +60,21 @@ def generate_markdown_report(result: Dict[str, Any], query: str, task: Dict[str,
 
 ## 4. Agentic Execution Trace
 """
-    for idx, trace in enumerate(result.get("analysis_trace", []), start=1):
-        report += f"{idx}. **{trace.get('stage', 'Stage')}**: {trace.get('details', '')} *(Latency: {trace.get('latency', 'N/A')})*\n"
+    for idx, trace in enumerate(result.get("analysis_trace", []), 1):
+        if isinstance(trace, dict):
+            stage = trace.get("stage", "Stage")
+            details = trace.get("details", "")
+            latency = trace.get("latency", "N/A")
+        else:
+            # Backend may currently return trace entries as plain strings.
+            stage = "Stage"
+            details = str(trace)
+            latency = "N/A"
 
-    report += """
----
-*Notice: This report was generated autonomously by SatQuery AI. Ground truth verification is recommended before critical operational deployment.*
-"""
+        report += (
+            f"{idx}. **{stage}**: {details} "
+            f"*(Latency: {latency})*\n"
+        )
     return report.strip()
 
 

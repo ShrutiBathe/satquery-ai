@@ -12,16 +12,20 @@ from utils.export_utils import generate_markdown_report, generate_json_report
 
 def render_answer_panel(
     result: Dict[str, Any],
-    confidence: float,
+    confidence: float | None,
     breakdown: Dict[str, float],
     query: str,
     detected_task: Dict[str, Any]
 ) -> None:
     """Render the AI Insight card, confidence gauge, and action toolbar."""
-    conf_pct = int(confidence * 100)
+    conf_pct = int(confidence * 100) if confidence is not None else None
 
     # Determine confidence badge & color
-    if conf_pct >= 85:
+    if conf_pct is None:
+        conf_badge = "NOT PROVIDED"
+        conf_class = "sq-badge-cyan"
+        conf_color = "#38BDF8"
+    elif conf_pct >= 85:
         conf_badge = "HIGH CONFIDENCE"
         conf_class = "sq-badge-green"
         conf_color = "#10B981"
@@ -65,7 +69,7 @@ def render_answer_panel(
             <div style="font-size: 0.74rem; color: #64748B; font-family: monospace; font-weight: 600;">DECISION CONFIDENCE</div>
             <div style="display: flex; align-items: baseline; gap: 0.4rem; margin-top: 2px;">
                 <span style="font-size: 1.6rem; font-weight: 700; color: {conf_color}; font-family: 'Space Grotesk', sans-serif;">
-                    {conf_pct}%
+                    {f'{conf_pct}%' if conf_pct is not None else 'N/A'}
                 </span>
                 <span class="sq-badge {conf_class}">{conf_badge}</span>
             </div>

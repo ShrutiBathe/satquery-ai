@@ -58,7 +58,15 @@ def render_evidence_card(evidence: Dict[str, Any], metrics: Dict[str, Any]) -> N
                 render_html(f"""
 <div style="background: rgba(6, 9, 19, 0.6); padding: 0.65rem; border-radius: 8px; border: 1px solid rgba(56, 189, 248, 0.12); text-align: center;">
     <div style="font-size: 0.72rem; color: #94A3B8; margin-bottom: 2px;">{m_key}</div>
-    <div style="font-size: 1.15rem; font-weight: 700; color: #00F0FF; font-family: 'Space Grotesk', sans-serif;">{val}</div>
-    <div style="font-size: 0.68rem; color: #64748B;">{unit}</div>
+    <div style="font-size: 1.15rem; font-weight: 700; color: #F8FAFC; font-family: 'Space Grotesk', sans-serif;">
+        {val}<span style="font-size: 0.75rem; color: #64748B; margin-left: 2px;">{unit}</span>
+    </div>
 </div>
 """)
+
+    if not labels and not metrics:
+        render_html("""
+<div style="font-size: 0.82rem; color: #64748B; font-style: italic; margin-top: 0.2rem; padding: 0.5rem; background: rgba(14, 22, 43, 0.3); border-radius: 6px; border: 1px dashed rgba(100, 116, 139, 0.2);">
+    No additional quantitative metrics or class legends were extracted for this specific analysis task.
+</div>
+        """)

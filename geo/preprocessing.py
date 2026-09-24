@@ -9,9 +9,19 @@ from .validation import validate_images
 from .bands import select_rgb_bands
 OUTPUT_DIR = Path("outputs/processed")
 
-# Target size for model-ready images.
-# Set to None to keep the original size.
-TARGET_SIZE = (100, 150)
+# Preserve uploaded resolution for evidence and model preprocessing. VQA and
+# Grounding perform their own model-side preprocessing; resizing here makes
+# the frontend evidence visibly blurry.
+import os
+
+# Optional down‑scale dimension for large images.
+# If GROUNDING_MAX_DIM is set, images will be resized to a square of that size.
+_env_max = os.getenv('GROUNDING_MAX_DIM')
+if _env_max and _env_max.isdigit():
+    max_dim = int(_env_max)
+    TARGET_SIZE = (max_dim, max_dim)
+else:
+    TARGET_SIZE = None
 
 
 def _read_image(image_path: str):
@@ -321,9 +331,58 @@ def _save_geotiff(data, output_path, source_metadata):
 
         dst.write(data)
 
+def preprocess_optical_sar(
+    optical_path: str,
+    vv_path: str,
+    vh_path: str,
+) -> dict:
+    """Validate the three modality paths without converting their bands."""
+
+    paths = [Path(optical_path), Path(vv_path), Path(vh_path)]
+    if any(not path.exists() for path in paths):
+        missing = next(path for path in paths if not path.exists())
+        return {"success": False, "image_paths": [], "metadata": {}, "error": f"Image file not found: {missing}"}
+
+    if any(path.suffix.lower() not in {".tif", ".tiff"} for path in paths):
+        return {
+            "success": False,
+            "image_paths": [],
+            "metadata": {},
+            "error": "Optical-SAR requires GeoTIFF/TIFF optical, SAR VV, and SAR VH inputs.",
+        }
+
+    try:
+        import rasterio
+
+        metadata = {}
+        with rasterio.open(paths[0]) as optical, rasterio.open(paths[1]) as vv, rasterio.open(paths[2]) as vh:
+            if optical.count < 3:
+                raise ValueError("Optical input must contain at least 3 channels.")
+            for name, source in (("SAR VV", vv), ("SAR VH", vh)):
+                if source.count < 1:
+                    raise ValueError(f"{name} input must contain at least one band.")
+                if (source.width, source.height) != (optical.width, optical.height):
+                    raise ValueError(f"{name} dimensions do not match the optical input.")
+                if source.crs != optical.crs:
+                    raise ValueError(f"{name} CRS does not match the optical input.")
+            metadata = {
+                "width": optical.width,
+                "height": optical.height,
+                "optical_bands": optical.count,
+                "vv_bands": vv.count,
+                "vh_bands": vh.count,
+                "crs": str(optical.crs) if optical.crs else None,
+                "paired": True,
+            }
+        return {"success": True, "image_paths": [str(path) for path in paths], "metadata": metadata, "error": None}
+    except Exception as exc:
+        return {"success": False, "image_paths": [], "metadata": {}, "error": str(exc)}
+
+
 def preprocess_images(
     image_paths: list[str],
-    task: str
+    task: str,
+    output_dir: str | Path | None = None,
 ) -> dict:
 
     # ---------------------------------------------------------
@@ -344,7 +403,8 @@ def preprocess_images(
     # 2. Create output directory
     # ---------------------------------------------------------
 
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    output_root = Path(output_dir) if output_dir is not None else OUTPUT_DIR
+    output_root.mkdir(parents=True, exist_ok=True)
 
     task = task.lower().strip().replace("-", "_").replace(" ", "_")
 
@@ -361,24 +421,40 @@ def preprocess_images(
             before_path = Path(image_paths[0])
             after_path = Path(image_paths[1])
 
-            # Change detection requires GeoTIFF images
-            if (
-                before_path.suffix.lower() not in {".tif", ".tiff"}
-                or after_path.suffix.lower() not in {".tif", ".tiff"}
-            ):
+            before_is_geotiff = before_path.suffix.lower() in {".tif", ".tiff"}
+            after_is_geotiff = after_path.suffix.lower() in {".tif", ".tiff"}
+
+            # GeoTIFF pairs are aligned on their spatial grid. Ordinary
+            # image pairs have no CRS/grid to align, so require matching
+            # dimensions and let ChangeFormer perform its model resize.
+            if not before_is_geotiff or not after_is_geotiff:
+                # Non‑GeoTIFF images: ensure they have matching dimensions.
+                with Image.open(before_path) as before_image, Image.open(after_path) as after_image:
+                    before_size = before_image.size  # (width, height)
+                    if after_image.size != before_size:
+                        # Resize after‑image to match before‑image dimensions.
+                        after_image = after_image.resize(before_size, Image.Resampling.BILINEAR)
+                    # Save the (possibly resized) images to the output directory.
+                    output_before = output_root / "before.png"
+                    output_after = output_root / "after.png"
+                    before_image.save(output_before)
+                    after_image.save(output_after)
+
                 return {
-                    "success": False,
-                    "image_paths": [],
-                    "metadata": {},
-                    "error": (
-                        "Change detection requires two "
-                        "GeoTIFF/TIFF images."
-                    )
+                    "success": True,
+                    "image_paths": [str(output_before), str(output_after)],
+                    "metadata": {
+                        "aligned": False,
+                        "geospatial_alignment": "not applicable",
+                        "width": before_size[0],
+                        "height": before_size[1],
+                    },
+                    "error": None,
                 }
 
             # Output files
-            output_before = OUTPUT_DIR / "before.tif"
-            output_after = OUTPUT_DIR / "after.tif"
+            output_before = output_root / "before.tif"
+            output_after = output_root / "after.tif"
 
             # Align AFTER image to BEFORE image grid
             alignment = _align_geotiffs(
@@ -420,87 +496,15 @@ def preprocess_images(
         # =====================================================
                 # OPTICAL-SAR
         if task == "optical_sar":
-
-            optical_path = Path(image_paths[0])
-            sar_path = Path(image_paths[1])
-
-            optical_data, optical_metadata = _read_image(
-                str(optical_path)
-            )
-
-            sar_data, sar_metadata = _read_image(
-                str(sar_path)
-            )
-
-            # Resize both images to the common target size
-            if TARGET_SIZE is not None:
-
-                optical_data = _resize_data(
-                    optical_data,
-                    TARGET_SIZE,
-                    band_first=optical_path.suffix.lower()
-                    in {".tif", ".tiff"}
-                )
-
-                sar_data = _resize_data(
-                    sar_data,
-                    TARGET_SIZE,
-                    band_first=sar_path.suffix.lower()
-                    in {".tif", ".tiff"}
-                )
-
-            optical_output = OUTPUT_DIR / "optical.tif"
-            sar_output = OUTPUT_DIR / "sar.tif"
-
-            if optical_path.suffix.lower() in {".tif", ".tiff"}:
-                _save_geotiff(
-                    optical_data,
-                    optical_output,
-                    optical_metadata
-                )
-            else:
-                _save_rgb_image(
-                    optical_data,
-                    optical_output.with_suffix(".png"),
-                    band_first=False
-                )
-                optical_output = optical_output.with_suffix(".png")
-
-            if sar_path.suffix.lower() in {".tif", ".tiff"}:
-                _save_geotiff(
-                    sar_data,
-                    sar_output,
-                    sar_metadata
-                )
-            else:
-                _save_rgb_image(
-                    sar_data,
-                    sar_output.with_suffix(".png"),
-                    band_first=False
-                )
-                sar_output = sar_output.with_suffix(".png")
-
-            return {
-                "success": True,
-                "image_paths": [
-                    str(optical_output),
-                    str(sar_output)
-                ],
-                  "metadata": {
-                    "optical": {
-                        **optical_metadata,
-                        "width": TARGET_SIZE[1],
-                        "height": TARGET_SIZE[0]
-                    },
-                    "sar": {
-                        **sar_metadata,
-                        "width": TARGET_SIZE[1],
-                        "height": TARGET_SIZE[0]
-                    },
-                    "paired": True
-                },
-                "error": None
-            }
+            # Ensure three modality images are provided: optical, SAR VV, SAR VH
+            if len(image_paths) != 3:
+                return {
+                    "success": False,
+                    "image_paths": [],
+                    "metadata": {},
+                    "error": "Optical-SAR task requires exactly three image paths (optical, SAR VV, SAR VH).",
+                }
+            return preprocess_optical_sar(*image_paths)
         data, metadata = _read_image(image_paths[0])
 
         extension = Path(image_paths[0]).suffix.lower()
@@ -539,7 +543,7 @@ def preprocess_images(
 
         if task in {"vqa", "grounding"}:
 
-            output_path = OUTPUT_DIR / "image1.png"
+            output_path = output_root / "image1.png"
 
             _save_rgb_image(
                             data,
@@ -565,7 +569,7 @@ def preprocess_images(
 
         if extension in {".tif", ".tiff"}:
 
-            output_path = OUTPUT_DIR / "image1.tif"
+            output_path = output_root / "image1.tif"
 
             _save_geotiff(
                 data,
@@ -586,7 +590,7 @@ def preprocess_images(
         # PNG / JPEG
         # -----------------------------------------------------
 
-        output_path = OUTPUT_DIR / "image1.png"
+        output_path = output_root / "image1.png"
 
         _save_rgb_image(
                         data,

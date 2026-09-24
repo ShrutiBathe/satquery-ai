@@ -22,7 +22,9 @@ STYLES_DIR = BASE_DIR / "styles"
 
 # Default API Configuration
 DEFAULT_BACKEND_URL = os.getenv("SATQUERY_BACKEND_URL", "http://localhost:8000")
-API_TIMEOUT_SECONDS = 60
+# CPU model loading and inference can exceed one minute, especially on the
+# first request when Hugging Face weights are downloaded or initialized.
+API_TIMEOUT_SECONDS = 300
 
 # Analysis Modes
 MODE_AUTO = "auto_detect"
